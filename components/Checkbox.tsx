@@ -1,0 +1,188 @@
+import React, { useState } from "react";
+
+// ─── Asset URLs (check & minus icons z Figma) ─────────────────────────────────
+const imgCheckActive   = "http://localhost:3845/assets/10bcb4b7490b46175d1d7b66ad779a58c614fb54.svg";
+const imgCheckDisabled = "http://localhost:3845/assets/4c445415eedaece06367a87d2d2ae0692c86e957.svg";
+const imgMinus         = "http://localhost:3845/assets/5c053bbb9aade7d1e3096e46ba4e7ee2c3a2d73b.svg";
+const imgMinusDisabled = "http://localhost:3845/assets/e344d7c87491fa89499e1d87ab7536cd48687d08.svg";
+const imgMinusHover    = "http://localhost:3845/assets/7bf3bb260eb4f4bf81e5e6a7313bb5aaa7fe4ddf.svg";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type CheckboxState = "default" | "hover" | "active" | "disabled" | "active-disabled";
+
+export interface CheckboxProps {
+  /** Czy checkbox jest zaznaczony */
+  checked?: boolean;
+  /** Stan indeterminate (minus) */
+  indeterminate?: boolean;
+  /** Label obok checkboxa */
+  label?: string;
+  /** Czy disabled */
+  disabled?: boolean;
+  /** Callback przy zmianie */
+  onChange?: (checked: boolean) => void;
+  className?: string;
+}
+
+// ─── Checkbox ─────────────────────────────────────────────────────────────────
+
+export function Checkbox({
+  checked      = false,
+  indeterminate = false,
+  label,
+  disabled     = false,
+  onChange,
+  className    = "",
+}: CheckboxProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Determine visual state
+  const state: CheckboxState =
+    disabled && checked        ? "active-disabled"
+    : disabled                 ? "disabled"
+    : checked || indeterminate ? "active"
+    : isHovered                ? "hover"
+    : "default";
+
+  function handleClick() {
+    if (!disabled) onChange?.(!checked);
+  }
+
+  // ── Box styles ──────────────────────────────────────────────────────────────
+
+  const boxBase = "relative shrink-0 size-[20px] rounded-[4px] border transition-colors duration-150";
+
+  const boxStyles: Record<CheckboxState, string> = {
+    default:        `${boxBase} border-[#9A999A] bg-transparent`,
+    hover:          `${boxBase} border-[#93C8FF] bg-[rgba(58,112,226,0.25)]`,
+    active:         `${boxBase} border-[#3A70E2] bg-transparent`,
+    disabled:       `${boxBase} border-[#555455] bg-transparent`,
+    "active-disabled": `${boxBase} border-[#555455] bg-transparent`,
+  };
+
+  // ── Inner fill (for active states) ─────────────────────────────────────────
+
+  const fillColor =
+    state === "active-disabled" ? "#555455"
+    : state === "active"        ? "#3A70E2"
+    : null;
+
+  // ── Icon inside the box ────────────────────────────────────────────────────
+
+  function BoxIcon() {
+    if (state === "disabled" || state === "default" || state === "hover") return null;
+
+    const iconSrc =
+      indeterminate && state === "active"          ? imgMinus
+      : indeterminate && state === "hover"         ? imgMinusHover
+      : indeterminate && state === "active-disabled" ? imgMinusDisabled
+      : state === "active-disabled"                ? imgCheckDisabled
+      : imgCheckActive;
+
+    return (
+      <div
+        className="absolute inset-[10%] flex items-center justify-center rounded-[2px]"
+        style={{ backgroundColor: fillColor ?? "transparent" }}
+      >
+        <div className="relative size-[16px]">
+          <img
+            alt={indeterminate ? "indeterminate" : "checked"}
+            className="absolute block inset-0 max-w-none size-full"
+            src={iconSrc}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  const isInteractive = !disabled;
+  const Tag = isInteractive ? "button" : "div";
+
+  return (
+    <Tag
+      {...(isInteractive
+        ? {
+            type:           "button" as const,
+            onClick:        handleClick,
+            onMouseEnter:   () => setIsHovered(true),
+            onMouseLeave:   () => setIsHovered(false),
+            "aria-checked": indeterminate ? ("mixed" as const) : checked,
+            role:           "checkbox",
+          }
+        : { "aria-disabled": true, "aria-checked": indeterminate ? ("mixed" as const) : checked }
+      )}
+      className={[
+        "inline-flex items-center gap-[4px]",
+        isInteractive ? "cursor-pointer" : "cursor-not-allowed",
+        className,
+      ].join(" ")}
+    >
+      {/* Box */}
+      <div className={boxStyles[state]}>
+        <BoxIcon />
+      </div>
+
+      {/* Label */}
+      {label && (
+        <span
+          className={[
+            "text-[14px] font-normal leading-[16px] font-['Inter',sans-serif] whitespace-nowrap select-none",
+            state === "disabled" || state === "active-disabled"
+              ? "text-[#555455]"
+              : "text-white",
+          ].join(" ")}
+        >
+          {label}
+        </span>
+      )}
+    </Tag>
+  );
+}
+
+// ─── CheckboxGroup (convenience wrapper) ──────────────────────────────────────
+
+export interface CheckboxGroupOption {
+  value:        string;
+  label:        string;
+  disabled?:    boolean;
+}
+
+interface CheckboxGroupProps {
+  options:    CheckboxGroupOption[];
+  value?:     string[];
+  onChange?:  (value: string[]) => void;
+  className?: string;
+}
+
+export function CheckboxGroup({
+  options,
+  value    = [],
+  onChange,
+  className = "",
+}: CheckboxGroupProps) {
+  function toggle(optValue: string) {
+    const next = value.includes(optValue)
+      ? value.filter(v => v !== optValue)
+      : [...value, optValue];
+    onChange?.(next);
+  }
+
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {options.map(opt => (
+        <Checkbox
+          key={opt.value}
+          label={opt.label}
+          checked={value.includes(opt.value)}
+          disabled={opt.disabled}
+          onChange={() => toggle(opt.value)}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default Checkbox;
