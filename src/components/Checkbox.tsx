@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 // ─── Icon paths ───────────────────────────────────────────────────────────────
 const IC_CHECK = "/icons/check.svg";

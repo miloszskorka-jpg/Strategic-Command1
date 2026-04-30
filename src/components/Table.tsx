@@ -1,4 +1,4 @@
-import React, { useState, ReactNode } from "react";
+import { useState, ReactNode } from "react";
 import { Tag, TagVariant } from "./Tag";
 import { Checkbox } from "./Checkbox";
 
@@ -23,7 +23,7 @@ export type CellType =
   | "flag"
   | "custom";
 
-export interface TableColumn<T = Record<string, unknown>> {
+export interface TableColumn<T = object> {
   key:           string;
   title?:        string;
   cellType?:     CellType;
@@ -37,14 +37,14 @@ export interface TableColumn<T = Record<string, unknown>> {
   flagSrc?:      (value: unknown) => string;
 }
 
-export interface TableAction<T = Record<string, unknown>> {
+export interface TableAction<T = object> {
   icon:      "edit" | "view" | "delete" | ReactNode;
   label?:    string;
   onClick:   (row: T, rowIndex: number) => void;
   danger?:   boolean;
 }
 
-export interface TableProps<T = Record<string, unknown>> {
+export interface TableProps<T = object> {
   columns:        TableColumn<T>[];
   data:           T[];
   selectable?:    boolean;
@@ -267,7 +267,7 @@ function ActionsCell<T>({ row, rowIndex, actions, isHovered }: ActionsCellProps<
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T extends object>({
   columns,
   data,
   selectable    = false,
@@ -344,11 +344,11 @@ export function Table<T extends Record<string, unknown>>({
             >
               <TableCell
                 type={col.cellType ?? "label"}
-                value={row[col.key]}
+                value={(row as Record<string, unknown>)[col.key]}
                 isHovered={i === hoveredRow}
                 tagVariant={col.tagVariant}
                 flagSrc={col.flagSrc}
-                render={col.render ? () => col.render!(row[col.key], row, i) : undefined}
+                render={col.render ? () => col.render!((row as Record<string, unknown>)[col.key], row, i) : undefined}
               />
             </div>
           ))}

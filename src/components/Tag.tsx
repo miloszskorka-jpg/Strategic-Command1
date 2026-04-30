@@ -1,5 +1,3 @@
-import React from "react";
-
 // ─── Icon paths ───────────────────────────────────────────────────────────────
 const IC_CHECK_CIRCLE = "/icons/check-circle.svg";
 const IC_CANCEL       = "/icons/cancel.svg";

@@ -103,7 +103,6 @@ export function Input({
     : cfg.border;
 
   const bgClass     = disabled ? "bg-[#0D1112] opacity-40" : "bg-[#0D1112]";
-  const inputColor  = value ? "text-white" : "text-[#9A999A]";
 
   return (
     <div className={`flex flex-col gap-1 items-start w-full ${className}`}>

@@ -14,12 +14,7 @@ import React from "react";
 
 // ─── Asset URLs ───────────────────────────────────────────────────────────────
 
-const MASK  = "http://localhost:3845/assets/6b9c20f63b370e46c12f0942c046d011af5d6798.svg";
 const MASK2 = "http://localhost:3845/assets/d8940e916ba2c533ac3cf8007ee163af49417265.svg";
-const MASK3 = "http://localhost:3845/assets/c41956dd45c9feacd7d978ec37453d178714eaa6.svg";
-const MASK4 = "http://localhost:3845/assets/2b31653871a1dad419d52f3b72e822d5f4239898.svg";
-const MASK5 = "http://localhost:3845/assets/938fc48abcfefff62bd2ec9946bcf8196dc22b02.svg";
-const MASK6 = "http://localhost:3845/assets/58ece2ede3e71ceb25ba0ea1c7bc95e7f2d2a8e2.svg";
 
 // Icon fill assets
 const ASSETS: Record<string, string> = {

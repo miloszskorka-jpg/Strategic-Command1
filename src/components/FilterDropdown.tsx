@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Checkbox } from "./Checkbox";
+import { useState, useRef, useEffect } from "react";
 
 // ─── Icon paths ───────────────────────────────────────────────────────────────
 const IC_ARROW_DOWN = "/icons/arrow-down.svg";
@@ -71,8 +70,6 @@ export function FilterItem({ label, checked, onChange, className = "" }: FilterI
   // default unchecked → Default
   // hover unchecked   → Hover (blue tinted border)
   // checked           → Active (blue filled)
-  const checkboxState = checked ? "active" : isHovered ? "hover" : "default";
-
   return (
     <button
       type="button"

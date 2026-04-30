@@ -160,7 +160,6 @@ export function Navbar({
   const [variant, setVariant] = useState<NavbarVariant>(defaultVariant);
 
   const isExpanded        = variant === "expanded";
-  const isCollapsed       = variant === "collapsed";
   const isCollapsedText   = variant === "collapsed+text";
 
   // Width based on variant

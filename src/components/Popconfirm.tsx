@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect } from "react";
 
 // ─── Icon asset URLs ──────────────────────────────────────────────────────────
 const MASK          = "http://localhost:3845/assets/810411d6d78b58b9fc6545f170608dbf6d622232.svg";
