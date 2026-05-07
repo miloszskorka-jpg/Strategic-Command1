@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import Map, { useMap } from "react-map-gl/mapbox";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Map, { type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
@@ -38,55 +38,104 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: "map",   label: "Map",   icon: <IconMap />,   href: "/map"   },
 ];
 
-// ─── Cursor controller (must be inside Map to access useMap) ──────────────────
-
-function CursorController({ isCreating }: { isCreating: boolean }) {
-  const { current: map } = useMap();
-  useEffect(() => {
-    if (!map) return;
-    map.getCanvas().style.cursor = isCreating ? "crosshair" : "";
-  }, [map, isCreating]);
-  return null;
-}
-
-// ─── Crosshair overlay ────────────────────────────────────────────────────────
-
-function Crosshair() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="20" stroke="#EC2D30" strokeWidth="2" />
-        <line x1="24" y1="4"  x2="24" y2="44" stroke="#EC2D30" strokeWidth="1.5" />
-        <line x1="4"  y1="24" x2="44" y2="24" stroke="#EC2D30" strokeWidth="1.5" />
-        <circle cx="24" cy="24" r="3" fill="#EC2D30" />
-      </svg>
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
-  const navigate        = useNavigate();
-  const [isCreating,      setIsCreating]      = useState(false);
-  const [mapClickCoords,  setMapClickCoords]  = useState("");
+  const navigate           = useNavigate();
+  const mapRef             = useRef<MapRef>(null);
+  const mapContainerRef    = useRef<HTMLDivElement>(null);
 
-  console.log("Mapbox token:", import.meta.env.VITE_MAPBOX_TOKEN);
+  const [isCreating,     setIsCreating]     = useState(false);
+  const [mapClickCoords, setMapClickCoords] = useState("");
+  const [crosshairPos,   setCrosshairPos]   = useState({ x: 0, y: 0 });
+  const [isDragging,     setIsDragging]     = useState(false);
+
+  // Center crosshair and clear coords when form opens
+  useEffect(() => {
+    if (!isCreating) return;
+    const el = mapContainerRef.current;
+    if (el) setCrosshairPos({ x: el.offsetWidth / 2, y: el.offsetHeight / 2 });
+    setMapClickCoords("");
+  }, [isCreating]);
+
+  // Convert pixel position → geo coordinates string
+  const updateCoordsFromPixel = useCallback((x: number, y: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const { lat, lng } = map.unproject([x, y]);
+    setMapClickCoords(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+  }, []);
+
+  // Keyboard arrows move crosshair
+  useEffect(() => {
+    if (!isCreating) return;
+    const STEP = 20;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      setCrosshairPos((prev) => {
+        const el = mapContainerRef.current;
+        const w  = el ? el.offsetWidth  : Infinity;
+        const h  = el ? el.offsetHeight : Infinity;
+
+        let { x, y } = prev;
+        if (e.key === "ArrowLeft")  x = Math.max(0, x - STEP);
+        if (e.key === "ArrowRight") x = Math.min(w, x + STEP);
+        if (e.key === "ArrowUp")    y = Math.max(0, y - STEP);
+        if (e.key === "ArrowDown")  y = Math.min(h, y + STEP);
+
+        updateCoordsFromPixel(x, y);
+        return { x, y };
+      });
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCreating, updateCoordsFromPixel]);
+
+  // Mouse drag on crosshair
+  function handleCrosshairMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    e.nativeEvent.stopImmediatePropagation();
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startX      = crosshairPos.x;
+    const startY      = crosshairPos.y;
+
+    setIsDragging(true);
+
+    function onMouseMove(ev: MouseEvent) {
+      const el = mapContainerRef.current;
+      const w  = el ? el.offsetWidth  : Infinity;
+      const h  = el ? el.offsetHeight : Infinity;
+      const newX = Math.max(0, Math.min(startX + ev.clientX - startMouseX, w));
+      const newY = Math.max(0, Math.min(startY + ev.clientY - startMouseY, h));
+      setCrosshairPos({ x: newX, y: newY });
+      updateCoordsFromPixel(newX, newY);
+    }
+
+    function onMouseUp() {
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup",   onMouseUp);
+    }
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup",   onMouseUp);
+  }
 
   function handleStartCreating() {
-    setMapClickCoords("");
     setIsCreating(true);
   }
 
   function handleStopCreating() {
     setIsCreating(false);
     setMapClickCoords("");
-  }
-
-  function handleMapClick(e: { lngLat: { lat: number; lng: number } }) {
-    if (!isCreating) return;
-    const { lat, lng } = e.lngLat;
-    setMapClickCoords(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    setIsDragging(false);
   }
 
   return (
@@ -101,20 +150,43 @@ export default function MapPage() {
         }}
       />
 
-      <main className="flex-1 relative overflow-hidden">
+      {/* Map container — positioning parent for crosshair */}
+      <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
         <Map
+          ref={mapRef}
           id="main-map"
           initialViewState={{ longitude: 15, latitude: 48, zoom: 4 }}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%", pointerEvents: isDragging ? "none" : undefined }}
           mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
-          onClick={handleMapClick}
         >
-          <CursorController isCreating={isCreating} />
           <MapControls />
-          {isCreating && <Crosshair />}
         </Map>
-      </main>
+
+        {/* Draggable crosshair — sibling of Map, absolute inside container */}
+        {isCreating && (
+          <div
+            style={{
+              position:   "absolute",
+              left:       crosshairPos.x,
+              top:        crosshairPos.y,
+              transform:  "translate(-50%, -50%)",
+              zIndex:     20,
+              cursor:     isDragging ? "grabbing" : "grab",
+              pointerEvents: "all",
+              userSelect: "none",
+            }}
+            onMouseDown={handleCrosshairMouseDown}
+          >
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="20" stroke="#EC2D30" strokeWidth="2" />
+              <line x1="24" y1="4"  x2="24" y2="44" stroke="#EC2D30" strokeWidth="2" />
+              <line x1="4"  y1="24" x2="44" y2="24" stroke="#EC2D30" strokeWidth="2" />
+              <circle cx="24" cy="24" r="3" fill="#EC2D30" />
+            </svg>
+          </div>
+        )}
+      </div>
 
       <PlanningPanel
         isCreating={isCreating}

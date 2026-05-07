@@ -128,7 +128,7 @@ export function CreateObjectiveForm({ mapClickCoords, onCancel, onCreate }: Prop
           label="Coordinates"
           value={form.coordinates}
           onChange={(v) => setField("coordinates", v)}
-          placeholder="paste coordinates here or mark target on map"
+          placeholder="grab the crosshair or use arrow keys"
           error={errors.coordinates}
         />
       </div>
