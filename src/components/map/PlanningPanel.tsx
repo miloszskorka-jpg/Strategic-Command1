@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { CreateObjectiveForm, CreateObjectiveData } from "./CreateObjectiveForm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ObjectiveStatus = "REQUESTED" | "PLANNED" | "ACCEPTED";
 
-interface Objective {
+export interface Objective {
   id:          string;
   name:        string;
   status:      ObjectiveStatus;
@@ -97,10 +98,26 @@ function IconPlus() {
   );
 }
 
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+    </svg>
+  );
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTimestamp(iso: string): string {
-  const d = new Date(iso);
+  const d     = new Date(iso);
   const day   = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year  = d.getFullYear();
@@ -109,8 +126,13 @@ function formatTimestamp(iso: string): string {
   return `${day}.${month}.${year} ${hh}:${mm}`;
 }
 
-function formatCoord(val: number, decimals = 6): string {
-  return val.toFixed(decimals);
+function formatCoord(val: number): string {
+  return val.toFixed(6);
+}
+
+function parseCoords(raw: string): { lat: number; lng: number } {
+  const [a, b] = raw.split(",");
+  return { lat: parseFloat(a?.trim() ?? "0") || 0, lng: parseFloat(b?.trim() ?? "0") || 0 };
 }
 
 // ─── Objective card ───────────────────────────────────────────────────────────
@@ -118,41 +140,26 @@ function formatCoord(val: number, decimals = 6): string {
 function ObjectiveCard({ obj, onDelete }: { obj: Objective; onDelete: (id: string) => void }) {
   return (
     <div className="border border-[#161D20] rounded-[4px] p-3 flex flex-col gap-2">
-
-      {/* timestamp + trash */}
       <div className="flex items-center justify-between">
         <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
-        <button
-          onClick={() => onDelete(obj.id)}
-          className="text-[#E53535] hover:text-red-400 transition-colors"
-          aria-label="Delete objective"
-        >
+        <button onClick={() => onDelete(obj.id)} className="text-[#E53535] hover:text-red-400 transition-colors" aria-label="Delete">
           <IconTrash />
         </button>
       </div>
-
-      {/* purple dot + name + status */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="shrink-0 size-[20px] rounded-full bg-[#5900D9]" />
         <span className="text-white text-[14px] font-semibold">{obj.name}</span>
         <StatusTag status={obj.status} />
       </div>
-
-      {/* description */}
       <div>
         <span className="text-[#9A999A] text-[12px]">Description: </span>
         <span className="text-white text-[12px] line-clamp-2">{obj.description}</span>
       </div>
-
-      {/* coordinates */}
       <div className="flex items-center gap-1">
         <span className="text-[#9A999A] text-[12px]">Coordinates:</span>
         <span className="text-[#9A999A]"><IconLocation /></span>
-        <span className="text-white text-[12px]">
-          {formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}
-        </span>
+        <span className="text-white text-[12px]">{formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}</span>
       </div>
-
     </div>
   );
 }
@@ -164,27 +171,16 @@ type FilterValue = typeof FILTER_OPTIONS[number];
 
 function FilterSelect({ value, onChange }: { value: FilterValue; onChange: (v: FilterValue) => void }) {
   const [open, setOpen] = useState(false);
-
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-[#9A999A] hover:text-white text-[13px] transition-colors"
-      >
-        {value}
-        <IconChevronDown />
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-[#9A999A] hover:text-white text-[13px] transition-colors">
+        {value}<IconChevronDown />
       </button>
-
       {open && (
         <div className="absolute right-0 top-full mt-1 z-10 bg-[#0A0D0E] border border-[#161D20] rounded-[4px] min-w-[110px] py-1 shadow-lg">
           {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => { onChange(opt); setOpen(false); }}
-              className={`w-full text-left px-3 py-1.5 text-[13px] transition-colors ${
-                opt === value ? "text-white bg-[#161D20]" : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"
-              }`}
-            >
+            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[13px] transition-colors ${opt === value ? "text-white bg-[#161D20]" : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"}`}>
               {opt}
             </button>
           ))}
@@ -196,45 +192,63 @@ function FilterSelect({ value, onChange }: { value: FilterValue; onChange: (v: F
 
 // ─── Objectives section ───────────────────────────────────────────────────────
 
-function ObjectivesSection() {
-  const [filter,     setFilter]     = useState<FilterValue>("All");
-  const [objectives, setObjectives] = useState<Objective[]>(MOCK_OBJECTIVES);
+function ObjectivesSection({
+  objectives,
+  onDelete,
+  onCreateClick,
+}: {
+  objectives:    Objective[];
+  onDelete:      (id: string) => void;
+  onCreateClick: () => void;
+}) {
+  const [filter, setFilter] = useState<FilterValue>("All");
 
   const visible = objectives.filter((o) => {
     if (filter === "All") return true;
     return o.status === filter.toUpperCase();
   });
 
-  function handleDelete(id: string) {
-    setObjectives((prev) => prev.filter((o) => o.id !== id));
-  }
-
   return (
     <div className="flex flex-col">
-
-      {/* section header */}
       <div className="flex items-center justify-between">
         <span className="text-white text-[16px] font-semibold">Objectives</span>
         <FilterSelect value={filter} onChange={setFilter} />
       </div>
 
-      {/* create button */}
-      <button className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] my-4 transition-colors">
+      <button
+        onClick={onCreateClick}
+        className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] my-4 transition-colors cursor-pointer"
+      >
         <IconPlus />
         Create New Objective
       </button>
 
-      {/* list */}
       <div className="flex flex-col gap-3">
         {visible.length === 0 ? (
           <p className="text-[#9A999A] text-[13px] text-center py-6">No objectives match this filter.</p>
         ) : (
-          visible.map((obj) => (
-            <ObjectiveCard key={obj.id} obj={obj} onDelete={handleDelete} />
-          ))
+          visible.map((obj) => <ObjectiveCard key={obj.id} obj={obj} onDelete={onDelete} />)
         )}
       </div>
+    </div>
+  );
+}
 
+// ─── Toast ────────────────────────────────────────────────────────────────────
+
+function Toast({ name, onClose }: { name: string; onClose: () => void }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 bg-[#0D1112] border border-[#1A2329] rounded-[4px] p-4 shadow-[0px_4px_16px_rgba(0,0,0,0.6)] max-w-[320px]">
+      <div className="shrink-0 size-[32px] rounded-full bg-[#0C9D61] flex items-center justify-center text-white">
+        <IconCheck />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-[14px]">New objective has been created</p>
+        <p className="text-[#9A999A] text-[12px] mt-0.5">"{name}" was successfully added to the objectives list.</p>
+      </div>
+      <button onClick={onClose} className="shrink-0 text-[#9A999A] hover:text-white transition-colors">
+        <IconClose />
+      </button>
     </div>
   );
 }
@@ -243,51 +257,103 @@ function ObjectivesSection() {
 
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
 
-export function PlanningPanel() {
-  const [activeTab, setActiveTab] = useState<Tab>("Objectives");
+interface PlanningPanelProps {
+  isCreating:       boolean;
+  onStartCreating:  () => void;
+  onStopCreating:   () => void;
+  mapClickCoords:   string;
+}
+
+export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, mapClickCoords }: PlanningPanelProps) {
+  const [activeTab,   setActiveTab]   = useState<Tab>("Objectives");
+  const [objectives,  setObjectives]  = useState<Objective[]>(MOCK_OBJECTIVES);
+  const [toastName,   setToastName]   = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastName) return;
+    const t = setTimeout(() => setToastName(null), 4000);
+    return () => clearTimeout(t);
+  }, [toastName]);
+
+  function handleCreate(data: CreateObjectiveData) {
+    const { lat, lng } = parseCoords(data.coordinates);
+    const newObj: Objective = {
+      id:          String(Date.now()),
+      name:        data.name,
+      status:      "REQUESTED",
+      description: data.description,
+      lat,
+      lng,
+      createdAt:   new Date().toISOString(),
+    };
+    setObjectives((prev) => [newObj, ...prev]);
+    onStopCreating();
+    setToastName(data.name);
+  }
+
+  function handleDelete(id: string) {
+    setObjectives((prev) => prev.filter((o) => o.id !== id));
+  }
 
   return (
-    <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-y-auto flex flex-col">
-      <div className="p-6 flex flex-col gap-5 flex-1">
+    <>
+      <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-y-auto flex flex-col">
+        <div className="p-6 flex flex-col gap-5 flex-1">
 
-        {/* header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-white text-[24px] font-semibold leading-none">Planning</h2>
-          <button className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors">
-            <IconPerson />
-          </button>
+          {isCreating ? (
+            <CreateObjectiveForm
+              mapClickCoords={mapClickCoords}
+              onCancel={onStopCreating}
+              onCreate={handleCreate}
+            />
+          ) : (
+            <>
+              {/* header */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-white text-[24px] font-semibold leading-none">Planning</h2>
+                <button className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors">
+                  <IconPerson />
+                </button>
+              </div>
+
+              {/* tabs */}
+              <div className="flex items-center gap-1">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2 text-[14px] font-medium rounded-[4px] transition-colors ${
+                      tab === activeTab
+                        ? "bg-[#161D20] border border-[#3A70E2] text-white"
+                        : "text-[#9A999A] hover:text-white"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {/* content */}
+              {activeTab === "Objectives" && (
+                <ObjectivesSection
+                  objectives={objectives}
+                  onDelete={handleDelete}
+                  onCreateClick={onStartCreating}
+                />
+              )}
+              {activeTab === "Plans" && (
+                <p className="text-[#9A999A] text-[13px]">Plans coming soon.</p>
+              )}
+              {activeTab === "Scenarios" && (
+                <p className="text-[#9A999A] text-[13px]">Scenarios coming soon.</p>
+              )}
+            </>
+          )}
+
         </div>
-
-        {/* tabs */}
-        <div className="flex items-center gap-1">
-          {TABS.map((tab) => {
-            const isActive = tab === activeTab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-[14px] font-medium rounded-[4px] transition-colors ${
-                  isActive
-                    ? "bg-[#161D20] border border-[#3A70E2] text-white"
-                    : "text-[#9A999A] hover:text-white"
-                }`}
-              >
-                {tab}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* content */}
-        {activeTab === "Objectives" && <ObjectivesSection />}
-        {activeTab === "Plans" && (
-          <p className="text-[#9A999A] text-[13px]">Plans coming soon.</p>
-        )}
-        {activeTab === "Scenarios" && (
-          <p className="text-[#9A999A] text-[13px]">Scenarios coming soon.</p>
-        )}
-
       </div>
-    </div>
+
+      {toastName && <Toast name={toastName} onClose={() => setToastName(null)} />}
+    </>
   );
 }

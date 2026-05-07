@@ -1,9 +1,12 @@
-import Map from "react-map-gl/mapbox";
+import { useState, useEffect } from "react";
+import Map, { useMap } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
 import { PlanningPanel } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
+
+// ─── Nav icons ────────────────────────────────────────────────────────────────
 
 function IconHome() {
   return (
@@ -35,10 +38,56 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: "map",   label: "Map",   icon: <IconMap />,   href: "/map"   },
 ];
 
+// ─── Cursor controller (must be inside Map to access useMap) ──────────────────
+
+function CursorController({ isCreating }: { isCreating: boolean }) {
+  const { current: map } = useMap();
+  useEffect(() => {
+    if (!map) return;
+    map.getCanvas().style.cursor = isCreating ? "crosshair" : "";
+  }, [map, isCreating]);
+  return null;
+}
+
+// ─── Crosshair overlay ────────────────────────────────────────────────────────
+
+function Crosshair() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="20" stroke="#EC2D30" strokeWidth="2" />
+        <line x1="24" y1="4"  x2="24" y2="44" stroke="#EC2D30" strokeWidth="1.5" />
+        <line x1="4"  y1="24" x2="44" y2="24" stroke="#EC2D30" strokeWidth="1.5" />
+        <circle cx="24" cy="24" r="3" fill="#EC2D30" />
+      </svg>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function MapPage() {
-  const navigate = useNavigate();
+  const navigate        = useNavigate();
+  const [isCreating,      setIsCreating]      = useState(false);
+  const [mapClickCoords,  setMapClickCoords]  = useState("");
 
   console.log("Mapbox token:", import.meta.env.VITE_MAPBOX_TOKEN);
+
+  function handleStartCreating() {
+    setMapClickCoords("");
+    setIsCreating(true);
+  }
+
+  function handleStopCreating() {
+    setIsCreating(false);
+    setMapClickCoords("");
+  }
+
+  function handleMapClick(e: { lngLat: { lat: number; lng: number } }) {
+    if (!isCreating) return;
+    const { lat, lng } = e.lngLat;
+    setMapClickCoords(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-secondary-900 font-sans">
@@ -59,12 +108,20 @@ export default function MapPage() {
           style={{ width: "100%", height: "100%" }}
           mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+          onClick={handleMapClick}
         >
+          <CursorController isCreating={isCreating} />
           <MapControls />
+          {isCreating && <Crosshair />}
         </Map>
       </main>
 
-      <PlanningPanel />
+      <PlanningPanel
+        isCreating={isCreating}
+        onStartCreating={handleStartCreating}
+        onStopCreating={handleStopCreating}
+        mapClickCoords={mapClickCoords}
+      />
     </div>
   );
 }
