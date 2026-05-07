@@ -1,0 +1,293 @@
+import { useState } from "react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ObjectiveStatus = "REQUESTED" | "PLANNED" | "ACCEPTED";
+
+interface Objective {
+  id:          string;
+  name:        string;
+  status:      ObjectiveStatus;
+  description: string;
+  lat:         number;
+  lng:         number;
+  createdAt:   string;
+}
+
+type Tab = "Objectives" | "Plans" | "Scenarios";
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
+const MOCK_OBJECTIVES: Objective[] = [
+  {
+    id:          "1",
+    name:        "Secure Lake",
+    status:      "REQUESTED",
+    description: "It is necessary to secure the lake by controlling access, monitoring...",
+    lat:         47.410225,
+    lng:         34.761743,
+    createdAt:   "2026-04-28T13:28:00",
+  },
+  {
+    id:          "2",
+    name:        "Hold Northern Ridge",
+    status:      "PLANNED",
+    description: "Establish defensive positions along the northern ridge to prevent enemy advance.",
+    lat:         47.521100,
+    lng:         34.823410,
+    createdAt:   "2026-04-29T08:14:00",
+  },
+];
+
+// ─── Status tag ───────────────────────────────────────────────────────────────
+
+const STATUS_STYLES: Record<ObjectiveStatus, string> = {
+  REQUESTED: "bg-[rgba(254,155,14,0.2)] border border-[#FFC62B] text-[#FFC62B]",
+  PLANNED:   "bg-[rgba(58,112,226,0.2)] border border-[#4BA1FF] text-[#4BA1FF]",
+  ACCEPTED:  "bg-[rgba(12,157,97,0.2)]  border border-[#6BC497] text-[#6BC497]",
+};
+
+function StatusTag({ status }: { status: ObjectiveStatus }) {
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-semibold tracking-wide ${STATUS_STYLES[status]}`}>
+      {status}
+    </span>
+  );
+}
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+function IconPerson() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+      <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+    </svg>
+  );
+}
+
+function IconLocation() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+    </svg>
+  );
+}
+
+function IconChevronDown() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </svg>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const day   = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year  = d.getFullYear();
+  const hh    = String(d.getHours()).padStart(2, "0");
+  const mm    = String(d.getMinutes()).padStart(2, "0");
+  return `${day}.${month}.${year} ${hh}:${mm}`;
+}
+
+function formatCoord(val: number, decimals = 6): string {
+  return val.toFixed(decimals);
+}
+
+// ─── Objective card ───────────────────────────────────────────────────────────
+
+function ObjectiveCard({ obj, onDelete }: { obj: Objective; onDelete: (id: string) => void }) {
+  return (
+    <div className="border border-[#161D20] rounded-[4px] p-3 flex flex-col gap-2">
+
+      {/* timestamp + trash */}
+      <div className="flex items-center justify-between">
+        <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
+        <button
+          onClick={() => onDelete(obj.id)}
+          className="text-[#E53535] hover:text-red-400 transition-colors"
+          aria-label="Delete objective"
+        >
+          <IconTrash />
+        </button>
+      </div>
+
+      {/* purple dot + name + status */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="shrink-0 size-[20px] rounded-full bg-[#5900D9]" />
+        <span className="text-white text-[14px] font-semibold">{obj.name}</span>
+        <StatusTag status={obj.status} />
+      </div>
+
+      {/* description */}
+      <div>
+        <span className="text-[#9A999A] text-[12px]">Description: </span>
+        <span className="text-white text-[12px] line-clamp-2">{obj.description}</span>
+      </div>
+
+      {/* coordinates */}
+      <div className="flex items-center gap-1">
+        <span className="text-[#9A999A] text-[12px]">Coordinates:</span>
+        <span className="text-[#9A999A]"><IconLocation /></span>
+        <span className="text-white text-[12px]">
+          {formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}
+        </span>
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Filter dropdown ──────────────────────────────────────────────────────────
+
+const FILTER_OPTIONS = ["All", "Requested", "Planned", "Accepted"] as const;
+type FilterValue = typeof FILTER_OPTIONS[number];
+
+function FilterSelect({ value, onChange }: { value: FilterValue; onChange: (v: FilterValue) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-[#9A999A] hover:text-white text-[13px] transition-colors"
+      >
+        {value}
+        <IconChevronDown />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-10 bg-[#0A0D0E] border border-[#161D20] rounded-[4px] min-w-[110px] py-1 shadow-lg">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-[13px] transition-colors ${
+                opt === value ? "text-white bg-[#161D20]" : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Objectives section ───────────────────────────────────────────────────────
+
+function ObjectivesSection() {
+  const [filter,     setFilter]     = useState<FilterValue>("All");
+  const [objectives, setObjectives] = useState<Objective[]>(MOCK_OBJECTIVES);
+
+  const visible = objectives.filter((o) => {
+    if (filter === "All") return true;
+    return o.status === filter.toUpperCase();
+  });
+
+  function handleDelete(id: string) {
+    setObjectives((prev) => prev.filter((o) => o.id !== id));
+  }
+
+  return (
+    <div className="flex flex-col">
+
+      {/* section header */}
+      <div className="flex items-center justify-between">
+        <span className="text-white text-[16px] font-semibold">Objectives</span>
+        <FilterSelect value={filter} onChange={setFilter} />
+      </div>
+
+      {/* create button */}
+      <button className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] my-4 transition-colors">
+        <IconPlus />
+        Create New Objective
+      </button>
+
+      {/* list */}
+      <div className="flex flex-col gap-3">
+        {visible.length === 0 ? (
+          <p className="text-[#9A999A] text-[13px] text-center py-6">No objectives match this filter.</p>
+        ) : (
+          visible.map((obj) => (
+            <ObjectiveCard key={obj.id} obj={obj} onDelete={handleDelete} />
+          ))
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Main panel ───────────────────────────────────────────────────────────────
+
+const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
+
+export function PlanningPanel() {
+  const [activeTab, setActiveTab] = useState<Tab>("Objectives");
+
+  return (
+    <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-y-auto flex flex-col">
+      <div className="p-6 flex flex-col gap-5 flex-1">
+
+        {/* header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-white text-[24px] font-semibold leading-none">Planning</h2>
+          <button className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors">
+            <IconPerson />
+          </button>
+        </div>
+
+        {/* tabs */}
+        <div className="flex items-center gap-1">
+          {TABS.map((tab) => {
+            const isActive = tab === activeTab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-[14px] font-medium rounded-[4px] transition-colors ${
+                  isActive
+                    ? "bg-[#161D20] border border-[#3A70E2] text-white"
+                    : "text-[#9A999A] hover:text-white"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* content */}
+        {activeTab === "Objectives" && <ObjectivesSection />}
+        {activeTab === "Plans" && (
+          <p className="text-[#9A999A] text-[13px]">Plans coming soon.</p>
+        )}
+        {activeTab === "Scenarios" && (
+          <p className="text-[#9A999A] text-[13px]">Scenarios coming soon.</p>
+        )}
+
+      </div>
+    </div>
+  );
+}

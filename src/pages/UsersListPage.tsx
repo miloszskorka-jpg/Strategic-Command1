@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Button } from "../components/Button";
@@ -84,9 +85,18 @@ const STATUS_VARIANT: Record<UserStatus, TagVariant> = {
   Invited:   "blue",
 };
 
+function IconMap() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+      <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS: NavItemConfig[] = [
-  { id: "home",  label: "Home",  icon: <IconHome />  },
-  { id: "users", label: "Users", icon: <IconUsers /> },
+  { id: "home",  label: "Home",  icon: <IconHome />,  href: "/"      },
+  { id: "users", label: "Users", icon: <IconUsers />, href: "/users" },
+  { id: "map",   label: "Map",   icon: <IconMap />,   href: "/map"   },
 ];
 
 // ─── Columns ─────────────────────────────────────────────────────────────────
@@ -137,6 +147,7 @@ const ROLE_LABEL_MAP: Record<string, string> = {
 };
 
 export default function UsersListPage() {
+  const navigate = useNavigate();
   const [search,        setSearch]        = useState("");
   const [roleFilter,    setRoleFilter]    = useState<string[]>([]);
   const [statusFilter,  setStatusFilter]  = useState<string[]>([]);
@@ -192,6 +203,10 @@ export default function UsersListPage() {
         items={NAV_ITEMS}
         activeId="users"
         defaultVariant="collapsed"
+        onNavigate={(id) => {
+          const item = NAV_ITEMS.find((i) => i.id === id);
+          if (item?.href) navigate(item.href);
+        }}
       />
 
       {/* ── Main ── */}
