@@ -44,11 +44,11 @@ export function MapControls() {
         <Button
           key={ctrl.label}
           variant="secondary"
-          size="sm"
+          size="lg"
           title={ctrl.label}
           onClick={() => handle(ctrl.action)}
           iconOnly={
-            <img src={ctrl.icon} alt={ctrl.label} className="size-full" />
+            <img src={ctrl.icon} alt={ctrl.label} className="size-[24px]" />
           }
         />
       ))}
