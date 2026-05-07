@@ -37,6 +37,8 @@ const NAV_ITEMS: NavItemConfig[] = [
 export default function MapPage() {
   const navigate = useNavigate();
 
+  console.log("Mapbox token:", import.meta.env.VITE_MAPBOX_TOKEN);
+
   return (
     <div className="flex h-screen overflow-hidden bg-secondary-900 font-sans">
       <Navbar
@@ -49,7 +51,7 @@ export default function MapPage() {
         }}
       />
 
-      <main className="flex-1 relative">
+      <main className="flex-1 relative h-full">
         <Map
           initialViewState={{ longitude: 15, latitude: 48, zoom: 4 }}
           style={{ width: "100%", height: "100%" }}
