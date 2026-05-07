@@ -1,57 +1,66 @@
 import { useMap } from "react-map-gl/mapbox";
-import { Button } from "../Button";
 
 const CONTROLS = [
-  { icon: "/icons/map/north_position.svg",  label: "Reset North",  action: "resetNorth"  },
-  { icon: "/icons/map/change_direction.svg", label: "Rotate",       action: "rotateCW"    },
-  { icon: "/icons/map/my_location.svg",      label: "My Location",  action: "myLocation"  },
-  { icon: "/icons/map/Zoom_in.svg",          label: "Zoom In",      action: "zoomIn"      },
-  { icon: "/icons/map/Zoom_out.svg",         label: "Zoom Out",     action: "zoomOut"     },
-] as const;
-
-type Action = typeof CONTROLS[number]["action"];
+  {
+    icon:    "/icons/map/north_position.svg",
+    label:   "Reset North",
+    onClick: (map: ReturnType<typeof useMap>["current"]) => {
+      map?.easeTo({ bearing: 0, pitch: 0, duration: 500 });
+    },
+  },
+  {
+    icon:    "/icons/map/change_direction.svg",
+    label:   "Rotate 45°",
+    onClick: (map: ReturnType<typeof useMap>["current"]) => {
+      map?.easeTo({ bearing: (map.getBearing() ?? 0) + 45, duration: 300 });
+    },
+  },
+  {
+    icon:    "/icons/map/my_location.svg",
+    label:   "My Location",
+    onClick: (map: ReturnType<typeof useMap>["current"]) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => map?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14, duration: 1000 }),
+        (err) => console.warn("Geolocation unavailable:", err),
+      );
+    },
+  },
+  {
+    icon:    "/icons/map/Zoom_in.svg",
+    label:   "Zoom In",
+    onClick: (map: ReturnType<typeof useMap>["current"]) => {
+      map?.zoomIn({ duration: 300 });
+    },
+  },
+  {
+    icon:    "/icons/map/Zoom_out.svg",
+    label:   "Zoom Out",
+    onClick: (map: ReturnType<typeof useMap>["current"]) => {
+      map?.zoomOut({ duration: 300 });
+    },
+  },
+];
 
 export function MapControls() {
   const { current: map } = useMap();
 
-  function handle(action: Action) {
-    if (!map) return;
-    switch (action) {
-      case "resetNorth":
-        map.easeTo({ bearing: 0, pitch: 0, duration: 500 });
-        break;
-      case "rotateCW":
-        map.easeTo({ bearing: (map.getBearing() ?? 0) + 45, duration: 300 });
-        break;
-      case "myLocation":
-        navigator.geolocation.getCurrentPosition(
-          (pos) => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14, duration: 1000 }),
-          (err) => console.warn("Geolocation error:", err),
-        );
-        break;
-      case "zoomIn":
-        map.zoomIn({ duration: 300 });
-        break;
-      case "zoomOut":
-        map.zoomOut({ duration: 300 });
-        break;
-    }
-  }
-
   return (
-    <div className="absolute bottom-6 right-6 z-10 flex flex-col gap-2">
+    <div
+      className="absolute bottom-6 right-6 z-10 flex flex-col gap-2"
+      style={{ pointerEvents: "all" }}
+    >
       {CONTROLS.map((ctrl) => (
-        <Button
+        <button
           key={ctrl.label}
-          variant="secondary"
-          size="lg"
+          onClick={() => ctrl.onClick(map)}
           title={ctrl.label}
-          onClick={() => handle(ctrl.action)}
-          iconOnly={
-            <img src={ctrl.icon} alt={ctrl.label} className="size-[24px]" />
-          }
-        />
+          className="size-[48px] flex items-center justify-center bg-[#232E33] border border-[#465C66] rounded-[4px] hover:bg-[#2D3A40] hover:border-[#555455] active:bg-[#1A2329] transition-colors duration-150 cursor-pointer shadow-[0px_2px_8px_rgba(0,0,0,0.5)]"
+        >
+          <img src={ctrl.icon} alt={ctrl.label} className="size-[24px]" draggable={false} />
+        </button>
       ))}
     </div>
   );
 }
+
+export default MapControls;

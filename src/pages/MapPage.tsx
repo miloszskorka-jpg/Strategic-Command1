@@ -52,15 +52,16 @@ export default function MapPage() {
         }}
       />
 
-      <main className="flex-1 relative h-full">
+      <main className="flex-1 relative overflow-hidden">
         <Map
           id="main-map"
           initialViewState={{ longitude: 15, latitude: 48, zoom: 4 }}
           style={{ width: "100%", height: "100%" }}
           mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
-        />
-        <MapControls />
+        >
+          <MapControls />
+        </Map>
       </main>
 
       <PlanningPanel />
