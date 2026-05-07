@@ -3,6 +3,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
 import { PlanningPanel } from "../components/map/PlanningPanel";
+import { MapControls } from "../components/map/MapControls";
 
 function IconHome() {
   return (
@@ -53,11 +54,13 @@ export default function MapPage() {
 
       <main className="flex-1 relative h-full">
         <Map
+          id="main-map"
           initialViewState={{ longitude: 15, latitude: 48, zoom: 4 }}
           style={{ width: "100%", height: "100%" }}
           mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
         />
+        <MapControls />
       </main>
 
       <PlanningPanel />
