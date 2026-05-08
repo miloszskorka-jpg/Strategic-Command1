@@ -66,37 +66,43 @@ const INITIAL_OBJECTIVES: Objective[] = [
 function ObjectiveMarkers({
   objectives,
   hoveredCardId,
+  selectedObjectiveId,
   onMarkerHover,
   onMarkerHoverEnd,
+  onMarkerClick,
 }: {
-  objectives:       Objective[];
-  hoveredCardId:    string | null;
-  onMarkerHover:    (id: string) => void;
-  onMarkerHoverEnd: () => void;
+  objectives:          Objective[];
+  hoveredCardId:       string | null;
+  selectedObjectiveId: string | null;
+  onMarkerHover:       (id: string) => void;
+  onMarkerHoverEnd:    () => void;
+  onMarkerClick:       (id: string) => void;
 }) {
   return (
     <>
-      {objectives.map((obj) => (
-        <Marker key={obj.id} longitude={obj.lng} latitude={obj.lat} anchor="center">
-          <div
-            onMouseEnter={() => onMarkerHover(obj.id)}
-            onMouseLeave={onMarkerHoverEnd}
-            className="cursor-pointer"
-            style={{
-              animation: hoveredCardId === obj.id
-                ? "pulse 1s ease-in-out infinite"
-                : "none",
-            }}
-          >
-            <img
-              src="/icons/map/target.svg"
-              alt={obj.name}
-              style={{ width: 36, height: 36 }}
-              draggable={false}
-            />
-          </div>
-        </Marker>
-      ))}
+      {objectives.map((obj) => {
+        const shouldPulse = hoveredCardId === obj.id || selectedObjectiveId === obj.id;
+        return (
+          <Marker key={obj.id} longitude={obj.lng} latitude={obj.lat} anchor="center">
+            <div
+              onMouseEnter={() => onMarkerHover(obj.id)}
+              onMouseLeave={onMarkerHoverEnd}
+              onClick={() => onMarkerClick(obj.id)}
+              className="cursor-pointer"
+              style={{
+                animation: shouldPulse ? "pulse 1s ease-in-out infinite" : "none",
+              }}
+            >
+              <img
+                src="/icons/map/target.svg"
+                alt={obj.name}
+                style={{ width: 36, height: 36 }}
+                draggable={false}
+              />
+            </div>
+          </Marker>
+        );
+      })}
     </>
   );
 }
@@ -112,8 +118,13 @@ export default function MapPage() {
   const [objectives,   setObjectives]   = useState<Objective[]>(INITIAL_OBJECTIVES);
 
   // Hover state: marker hover highlights card; card hover pulses marker
-  const [hoveredObjectiveId, setHoveredObjectiveId] = useState<string | null>(null);
-  const [hoveredCardId,      setHoveredCardId]      = useState<string | null>(null);
+  const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
+  const [hoveredCardId,       setHoveredCardId]       = useState<string | null>(null);
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string | null>(null);
+
+  function handleObjectiveClick(id: string) {
+    setSelectedObjectiveId((prev) => (prev === id ? null : id));
+  }
 
   // Create-objective form state
   const [isCreating,     setIsCreating]     = useState(false);
@@ -228,8 +239,10 @@ export default function MapPage() {
           <ObjectiveMarkers
             objectives={objectives}
             hoveredCardId={hoveredCardId}
+            selectedObjectiveId={selectedObjectiveId}
             onMarkerHover={setHoveredObjectiveId}
             onMarkerHoverEnd={() => setHoveredObjectiveId(null)}
+            onMarkerClick={handleObjectiveClick}
           />
         </Map>
 
@@ -267,8 +280,11 @@ export default function MapPage() {
         onCreateObjective={(obj) => setObjectives((prev) => [obj, ...prev])}
         onDeleteObjective={(id) => setObjectives((prev) => prev.filter((o) => o.id !== id))}
         hoveredObjectiveId={hoveredObjectiveId}
+        hoveredCardId={hoveredCardId}
+        selectedObjectiveId={selectedObjectiveId}
         onCardHover={setHoveredCardId}
         onCardHoverEnd={() => setHoveredCardId(null)}
+        onCardClick={handleObjectiveClick}
       />
     </div>
   );

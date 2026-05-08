@@ -117,39 +117,61 @@ function parseCoords(raw: string): { lat: number; lng: number } {
 function ObjectiveCard({
   obj,
   onDelete,
+  isSelected,
   isHovered,
+  isHoveredByMarker,
   onHover,
   onHoverEnd,
+  onClick,
 }: {
-  obj:       Objective;
-  onDelete:  (id: string) => void;
-  isHovered: boolean;
-  onHover:   () => void;
-  onHoverEnd:() => void;
+  obj:               Objective;
+  onDelete:          (id: string) => void;
+  isSelected:        boolean;
+  isHovered:         boolean;
+  isHoveredByMarker: boolean;
+  onHover:           () => void;
+  onHoverEnd:        () => void;
+  onClick:           () => void;
 }) {
+  const borderBg = isSelected
+    ? "border-[#3A70E2] bg-[#0D1112]"
+    : isHovered
+      ? "border-[#232E33] bg-[#0D1112]"
+      : isHoveredByMarker
+        ? "border-[#203D7D] bg-transparent"
+        : "border-[#161D20] bg-transparent";
+
   return (
     <div
+      onClick={onClick}
       onMouseEnter={onHover}
       onMouseLeave={onHoverEnd}
-      className={`border rounded-[4px] p-3 flex flex-col gap-2 transition-colors duration-200 ${
-        isHovered ? "border-[#203D7D]" : "border-[#161D20]"
-      }`}
+      className={`border rounded-[4px] p-3 flex flex-col gap-2 cursor-pointer transition-all duration-150 ${borderBg}`}
     >
       <div className="flex items-center justify-between">
         <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
-        <button onClick={() => onDelete(obj.id)} className="text-[#E53535] hover:text-red-400 transition-colors" aria-label="Delete">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(obj.id); }}
+          className="text-[#E53535] hover:text-red-400 transition-colors"
+          aria-label="Delete"
+        >
           <IconTrash />
         </button>
       </div>
+
       <div className="flex items-center gap-2 flex-wrap">
         <img src="/icons/map/target.svg" alt="objective" className="size-[20px] shrink-0" />
         <span className="text-white text-[14px] font-semibold">{obj.name}</span>
         <StatusTag status={obj.status} />
       </div>
+
       <div>
         <span className="text-[#9A999A] text-[12px]">Description: </span>
-        <span className="text-white text-[12px] line-clamp-2">{obj.description}</span>
+        <span className={`text-white text-[12px] ${isSelected ? "" : "line-clamp-2"}`}>
+          {obj.description}
+        </span>
       </div>
+
       <div className="flex items-center gap-1">
         <span className="text-[#9A999A] text-[12px]">Coordinates:</span>
         <span className="text-[#9A999A]"><IconLocation /></span>
@@ -192,15 +214,21 @@ function ObjectivesSection({
   onDelete,
   onCreateClick,
   hoveredObjectiveId,
+  hoveredCardId,
+  selectedObjectiveId,
   onCardHover,
   onCardHoverEnd,
+  onCardClick,
 }: {
-  objectives:         Objective[];
-  onDelete:           (id: string) => void;
-  onCreateClick:      () => void;
-  hoveredObjectiveId: string | null;
-  onCardHover:        (id: string) => void;
-  onCardHoverEnd:     () => void;
+  objectives:          Objective[];
+  onDelete:            (id: string) => void;
+  onCreateClick:       () => void;
+  hoveredObjectiveId:  string | null;
+  hoveredCardId:       string | null;
+  selectedObjectiveId: string | null;
+  onCardHover:         (id: string) => void;
+  onCardHoverEnd:      () => void;
+  onCardClick:         (id: string) => void;
 }) {
   const [filter, setFilter] = useState<FilterValue>("All");
 
@@ -233,9 +261,12 @@ function ObjectivesSection({
               key={obj.id}
               obj={obj}
               onDelete={onDelete}
-              isHovered={hoveredObjectiveId === obj.id}
+              isSelected={selectedObjectiveId === obj.id}
+              isHovered={hoveredCardId === obj.id}
+              isHoveredByMarker={hoveredObjectiveId === obj.id}
               onHover={() => onCardHover(obj.id)}
               onHoverEnd={onCardHoverEnd}
+              onClick={() => onCardClick(obj.id)}
             />
           ))
         )}
@@ -268,25 +299,26 @@ function Toast({ name, onClose }: { name: string; onClose: () => void }) {
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
 
 export interface PlanningPanelProps {
-  // form state (from MapPage)
-  isCreating:       boolean;
-  onStartCreating:  () => void;
-  onStopCreating:   () => void;
-  mapClickCoords:   string;
-  // objectives (owned by MapPage)
-  objectives:         Objective[];
-  onCreateObjective:  (obj: Objective) => void;
-  onDeleteObjective:  (id: string) => void;
-  // hover (owned by MapPage)
-  hoveredObjectiveId: string | null;
-  onCardHover:        (id: string) => void;
-  onCardHoverEnd:     () => void;
+  isCreating:          boolean;
+  onStartCreating:     () => void;
+  onStopCreating:      () => void;
+  mapClickCoords:      string;
+  objectives:          Objective[];
+  onCreateObjective:   (obj: Objective) => void;
+  onDeleteObjective:   (id: string) => void;
+  hoveredObjectiveId:  string | null;
+  hoveredCardId:       string | null;
+  selectedObjectiveId: string | null;
+  onCardHover:         (id: string) => void;
+  onCardHoverEnd:      () => void;
+  onCardClick:         (id: string) => void;
 }
 
 export function PlanningPanel({
   isCreating, onStartCreating, onStopCreating, mapClickCoords,
   objectives, onCreateObjective, onDeleteObjective,
-  hoveredObjectiveId, onCardHover, onCardHoverEnd,
+  hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
+  onCardHover, onCardHoverEnd, onCardClick,
 }: PlanningPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Objectives");
   const [toastName, setToastName] = useState<string | null>(null);
@@ -355,8 +387,11 @@ export function PlanningPanel({
                   onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
                   hoveredObjectiveId={hoveredObjectiveId}
+                  hoveredCardId={hoveredCardId}
+                  selectedObjectiveId={selectedObjectiveId}
                   onCardHover={onCardHover}
                   onCardHoverEnd={onCardHoverEnd}
+                  onCardClick={onCardClick}
                 />
               )}
               {activeTab === "Plans" && (
