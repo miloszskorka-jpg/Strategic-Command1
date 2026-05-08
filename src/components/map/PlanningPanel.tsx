@@ -17,29 +17,6 @@ export interface Objective {
 
 type Tab = "Objectives" | "Plans" | "Scenarios";
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const MOCK_OBJECTIVES: Objective[] = [
-  {
-    id:          "1",
-    name:        "Secure Lake",
-    status:      "REQUESTED",
-    description: "It is necessary to secure the lake by controlling access, monitoring...",
-    lat:         47.410225,
-    lng:         34.761743,
-    createdAt:   "2026-04-28T13:28:00",
-  },
-  {
-    id:          "2",
-    name:        "Hold Northern Ridge",
-    status:      "PLANNED",
-    description: "Establish defensive positions along the northern ridge to prevent enemy advance.",
-    lat:         47.521100,
-    lng:         34.823410,
-    createdAt:   "2026-04-29T08:14:00",
-  },
-];
-
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<ObjectiveStatus, string> = {
@@ -137,9 +114,27 @@ function parseCoords(raw: string): { lat: number; lng: number } {
 
 // ─── Objective card ───────────────────────────────────────────────────────────
 
-function ObjectiveCard({ obj, onDelete }: { obj: Objective; onDelete: (id: string) => void }) {
+function ObjectiveCard({
+  obj,
+  onDelete,
+  isHovered,
+  onHover,
+  onHoverEnd,
+}: {
+  obj:       Objective;
+  onDelete:  (id: string) => void;
+  isHovered: boolean;
+  onHover:   () => void;
+  onHoverEnd:() => void;
+}) {
   return (
-    <div className="border border-[#161D20] rounded-[4px] p-3 flex flex-col gap-2">
+    <div
+      onMouseEnter={onHover}
+      onMouseLeave={onHoverEnd}
+      className={`border rounded-[4px] p-3 flex flex-col gap-2 transition-colors duration-200 ${
+        isHovered ? "border-[#203D7D]" : "border-[#161D20]"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
         <button onClick={() => onDelete(obj.id)} className="text-[#E53535] hover:text-red-400 transition-colors" aria-label="Delete">
@@ -147,7 +142,7 @@ function ObjectiveCard({ obj, onDelete }: { obj: Objective; onDelete: (id: strin
         </button>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="shrink-0 size-[20px] rounded-full bg-[#5900D9]" />
+        <img src="/icons/map/target.svg" alt="objective" className="size-[20px] shrink-0" />
         <span className="text-white text-[14px] font-semibold">{obj.name}</span>
         <StatusTag status={obj.status} />
       </div>
@@ -196,10 +191,16 @@ function ObjectivesSection({
   objectives,
   onDelete,
   onCreateClick,
+  hoveredObjectiveId,
+  onCardHover,
+  onCardHoverEnd,
 }: {
-  objectives:    Objective[];
-  onDelete:      (id: string) => void;
-  onCreateClick: () => void;
+  objectives:         Objective[];
+  onDelete:           (id: string) => void;
+  onCreateClick:      () => void;
+  hoveredObjectiveId: string | null;
+  onCardHover:        (id: string) => void;
+  onCardHoverEnd:     () => void;
 }) {
   const [filter, setFilter] = useState<FilterValue>("All");
 
@@ -227,7 +228,16 @@ function ObjectivesSection({
         {visible.length === 0 ? (
           <p className="text-[#9A999A] text-[13px] text-center py-6">No objectives match this filter.</p>
         ) : (
-          visible.map((obj) => <ObjectiveCard key={obj.id} obj={obj} onDelete={onDelete} />)
+          visible.map((obj) => (
+            <ObjectiveCard
+              key={obj.id}
+              obj={obj}
+              onDelete={onDelete}
+              isHovered={hoveredObjectiveId === obj.id}
+              onHover={() => onCardHover(obj.id)}
+              onHoverEnd={onCardHoverEnd}
+            />
+          ))
         )}
       </div>
     </div>
@@ -257,17 +267,29 @@ function Toast({ name, onClose }: { name: string; onClose: () => void }) {
 
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
 
-interface PlanningPanelProps {
+export interface PlanningPanelProps {
+  // form state (from MapPage)
   isCreating:       boolean;
   onStartCreating:  () => void;
   onStopCreating:   () => void;
   mapClickCoords:   string;
+  // objectives (owned by MapPage)
+  objectives:         Objective[];
+  onCreateObjective:  (obj: Objective) => void;
+  onDeleteObjective:  (id: string) => void;
+  // hover (owned by MapPage)
+  hoveredObjectiveId: string | null;
+  onCardHover:        (id: string) => void;
+  onCardHoverEnd:     () => void;
 }
 
-export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, mapClickCoords }: PlanningPanelProps) {
-  const [activeTab,   setActiveTab]   = useState<Tab>("Objectives");
-  const [objectives,  setObjectives]  = useState<Objective[]>(MOCK_OBJECTIVES);
-  const [toastName,   setToastName]   = useState<string | null>(null);
+export function PlanningPanel({
+  isCreating, onStartCreating, onStopCreating, mapClickCoords,
+  objectives, onCreateObjective, onDeleteObjective,
+  hoveredObjectiveId, onCardHover, onCardHoverEnd,
+}: PlanningPanelProps) {
+  const [activeTab, setActiveTab] = useState<Tab>("Objectives");
+  const [toastName, setToastName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!toastName) return;
@@ -286,13 +308,9 @@ export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, map
       lng,
       createdAt:   new Date().toISOString(),
     };
-    setObjectives((prev) => [newObj, ...prev]);
+    onCreateObjective(newObj);
     onStopCreating();
     setToastName(data.name);
-  }
-
-  function handleDelete(id: string) {
-    setObjectives((prev) => prev.filter((o) => o.id !== id));
   }
 
   return (
@@ -308,7 +326,6 @@ export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, map
             />
           ) : (
             <>
-              {/* header */}
               <div className="flex items-center justify-between">
                 <h2 className="text-white text-[24px] font-semibold leading-none">Planning</h2>
                 <button className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors">
@@ -316,7 +333,6 @@ export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, map
                 </button>
               </div>
 
-              {/* tabs */}
               <div className="flex items-center gap-1">
                 {TABS.map((tab) => (
                   <button
@@ -333,12 +349,14 @@ export function PlanningPanel({ isCreating, onStartCreating, onStopCreating, map
                 ))}
               </div>
 
-              {/* content */}
               {activeTab === "Objectives" && (
                 <ObjectivesSection
                   objectives={objectives}
-                  onDelete={handleDelete}
+                  onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
+                  hoveredObjectiveId={hoveredObjectiveId}
+                  onCardHover={onCardHover}
+                  onCardHoverEnd={onCardHoverEnd}
                 />
               )}
               {activeTab === "Plans" && (

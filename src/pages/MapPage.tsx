@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import Map, { type MapRef } from "react-map-gl/mapbox";
+import Map, { Marker, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
-import { PlanningPanel } from "../components/map/PlanningPanel";
+import { PlanningPanel, type Objective } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
@@ -38,13 +38,84 @@ const NAV_ITEMS: NavItemConfig[] = [
   { id: "map",   label: "Map",   icon: <IconMap />,   href: "/map"   },
 ];
 
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
+const INITIAL_OBJECTIVES: Objective[] = [
+  {
+    id:          "1",
+    name:        "Secure Lake",
+    status:      "REQUESTED",
+    description: "It is necessary to secure the lake by controlling access, monitoring...",
+    lat:         47.410225,
+    lng:         34.761743,
+    createdAt:   "2026-04-28T13:28:00",
+  },
+  {
+    id:          "2",
+    name:        "Hold Northern Ridge",
+    status:      "PLANNED",
+    description: "Establish defensive positions along the northern ridge to prevent enemy advance.",
+    lat:         47.521100,
+    lng:         34.823410,
+    createdAt:   "2026-04-29T08:14:00",
+  },
+];
+
+// ─── Objective markers ────────────────────────────────────────────────────────
+
+function ObjectiveMarkers({
+  objectives,
+  hoveredCardId,
+  onMarkerHover,
+  onMarkerHoverEnd,
+}: {
+  objectives:       Objective[];
+  hoveredCardId:    string | null;
+  onMarkerHover:    (id: string) => void;
+  onMarkerHoverEnd: () => void;
+}) {
+  return (
+    <>
+      {objectives.map((obj) => (
+        <Marker key={obj.id} longitude={obj.lng} latitude={obj.lat} anchor="center">
+          <div
+            onMouseEnter={() => onMarkerHover(obj.id)}
+            onMouseLeave={onMarkerHoverEnd}
+            className="cursor-pointer"
+            style={{
+              animation: hoveredCardId === obj.id
+                ? "pulse 1s ease-in-out infinite"
+                : "none",
+            }}
+          >
+            <img
+              src="/icons/map/target.svg"
+              alt={obj.name}
+              style={{ width: 36, height: 36 }}
+              draggable={false}
+            />
+          </div>
+        </Marker>
+      ))}
+    </>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MapPage() {
-  const navigate           = useNavigate();
-  const mapRef             = useRef<MapRef>(null);
-  const mapContainerRef    = useRef<HTMLDivElement>(null);
+  const navigate        = useNavigate();
+  const mapRef          = useRef<MapRef>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
+  // Objectives state (shared between map markers and panel list)
+  const [objectives,   setObjectives]   = useState<Objective[]>(INITIAL_OBJECTIVES);
+
+  // Hover state: marker hover highlights card; card hover pulses marker
+  const [hoveredObjectiveId, setHoveredObjectiveId] = useState<string | null>(null);
+  const [hoveredCardId,      setHoveredCardId]      = useState<string | null>(null);
+
+  // Create-objective form state
   const [isCreating,     setIsCreating]     = useState(false);
   const [mapClickCoords, setMapClickCoords] = useState("");
   const [crosshairPos,   setCrosshairPos]   = useState({ x: 0, y: 0 });
@@ -58,7 +129,7 @@ export default function MapPage() {
     setMapClickCoords("");
   }, [isCreating]);
 
-  // Convert pixel position → geo coordinates string
+  // Pixel → geo coordinates
   const updateCoordsFromPixel = useCallback((x: number, y: number) => {
     const map = mapRef.current;
     if (!map) return;
@@ -66,7 +137,7 @@ export default function MapPage() {
     setMapClickCoords(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
   }, []);
 
-  // Keyboard arrows move crosshair
+  // Keyboard arrow keys move crosshair
   useEffect(() => {
     if (!isCreating) return;
     const STEP = 20;
@@ -75,18 +146,15 @@ export default function MapPage() {
       if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
       e.preventDefault();
       e.stopPropagation();
-
       setCrosshairPos((prev) => {
         const el = mapContainerRef.current;
         const w  = el ? el.offsetWidth  : Infinity;
         const h  = el ? el.offsetHeight : Infinity;
-
         let { x, y } = prev;
         if (e.key === "ArrowLeft")  x = Math.max(0, x - STEP);
         if (e.key === "ArrowRight") x = Math.min(w, x + STEP);
         if (e.key === "ArrowUp")    y = Math.max(0, y - STEP);
         if (e.key === "ArrowDown")  y = Math.min(h, y + STEP);
-
         updateCoordsFromPixel(x, y);
         return { x, y };
       });
@@ -100,12 +168,10 @@ export default function MapPage() {
   function handleCrosshairMouseDown(e: React.MouseEvent) {
     e.preventDefault();
     e.nativeEvent.stopImmediatePropagation();
-
     const startMouseX = e.clientX;
     const startMouseY = e.clientY;
     const startX      = crosshairPos.x;
     const startY      = crosshairPos.y;
-
     setIsDragging(true);
 
     function onMouseMove(ev: MouseEvent) {
@@ -128,9 +194,7 @@ export default function MapPage() {
     document.addEventListener("mouseup",   onMouseUp);
   }
 
-  function handleStartCreating() {
-    setIsCreating(true);
-  }
+  function handleStartCreating() { setIsCreating(true); }
 
   function handleStopCreating() {
     setIsCreating(false);
@@ -150,7 +214,7 @@ export default function MapPage() {
         }}
       />
 
-      {/* Map container — positioning parent for crosshair */}
+      {/* Map container */}
       <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
         <Map
           ref={mapRef}
@@ -161,20 +225,26 @@ export default function MapPage() {
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
         >
           <MapControls />
+          <ObjectiveMarkers
+            objectives={objectives}
+            hoveredCardId={hoveredCardId}
+            onMarkerHover={setHoveredObjectiveId}
+            onMarkerHoverEnd={() => setHoveredObjectiveId(null)}
+          />
         </Map>
 
-        {/* Draggable crosshair — sibling of Map, absolute inside container */}
+        {/* Draggable crosshair */}
         {isCreating && (
           <div
             style={{
-              position:   "absolute",
-              left:       crosshairPos.x,
-              top:        crosshairPos.y,
-              transform:  "translate(-50%, -50%)",
-              zIndex:     20,
-              cursor:     isDragging ? "grabbing" : "grab",
+              position:      "absolute",
+              left:          crosshairPos.x,
+              top:           crosshairPos.y,
+              transform:     "translate(-50%, -50%)",
+              zIndex:        20,
+              cursor:        isDragging ? "grabbing" : "grab",
               pointerEvents: "all",
-              userSelect: "none",
+              userSelect:    "none",
             }}
             onMouseDown={handleCrosshairMouseDown}
           >
@@ -193,6 +263,12 @@ export default function MapPage() {
         onStartCreating={handleStartCreating}
         onStopCreating={handleStopCreating}
         mapClickCoords={mapClickCoords}
+        objectives={objectives}
+        onCreateObjective={(obj) => setObjectives((prev) => [obj, ...prev])}
+        onDeleteObjective={(id) => setObjectives((prev) => prev.filter((o) => o.id !== id))}
+        hoveredObjectiveId={hoveredObjectiveId}
+        onCardHover={setHoveredCardId}
+        onCardHoverEnd={() => setHoveredCardId(null)}
       />
     </div>
   );
