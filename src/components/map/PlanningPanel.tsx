@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CreateObjectiveForm, CreateObjectiveData } from "./CreateObjectiveForm";
+import { useUserRole } from "../../context/UserRoleContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,9 @@ function ObjectiveCard({
   onHoverEnd:        () => void;
   onClick:           () => void;
 }) {
+  const { role } = useUserRole();
+  const isCommander = role === "commander";
+
   const borderBg = isSelected
     ? "border-[#3A70E2] bg-[#0D1112]"
     : isHovered
@@ -150,13 +154,15 @@ function ObjectiveCard({
     >
       <div className="flex items-center justify-between">
         <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(obj.id); }}
-          className="text-[#E53535] hover:text-red-400 transition-colors"
-          aria-label="Delete"
-        >
-          <IconTrash />
-        </button>
+        {isCommander && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(obj.id); }}
+            className="text-[#E53535] hover:text-red-400 transition-colors"
+            aria-label="Delete"
+          >
+            <IconTrash />
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -230,6 +236,9 @@ function ObjectivesSection({
   onCardHoverEnd:      () => void;
   onCardClick:         (id: string) => void;
 }) {
+  const { role } = useUserRole();
+  const isCommander = role === "commander";
+
   const [filter, setFilter] = useState<FilterValue>("All");
 
   const visible = objectives.filter((o) => {
@@ -244,15 +253,17 @@ function ObjectivesSection({
         <FilterSelect value={filter} onChange={setFilter} />
       </div>
 
-      <button
-        onClick={onCreateClick}
-        className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] my-4 transition-colors cursor-pointer"
-      >
-        <IconPlus />
-        Create New Objective
-      </button>
+      {isCommander && (
+        <button
+          onClick={onCreateClick}
+          className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] my-4 transition-colors cursor-pointer"
+        >
+          <IconPlus />
+          Create New Objective
+        </button>
+      )}
 
-      <div className="flex flex-col gap-3">
+      <div className={`flex flex-col gap-3 ${isCommander ? "" : "mt-4"}`}>
         {visible.length === 0 ? (
           <p className="text-[#9A999A] text-[13px] text-center py-6">No objectives match this filter.</p>
         ) : (
@@ -320,6 +331,9 @@ export function PlanningPanel({
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
 }: PlanningPanelProps) {
+  const { role } = useUserRole();
+  const isCommander = role === "commander";
+
   const [activeTab, setActiveTab] = useState<Tab>("Objectives");
   const [toastName, setToastName] = useState<string | null>(null);
 
@@ -359,29 +373,33 @@ export function PlanningPanel({
           ) : (
             <>
               <div className="flex items-center justify-between">
-                <h2 className="text-white text-[24px] font-semibold leading-none">Planning</h2>
+                <h2 className="text-white text-[24px] font-semibold leading-none">
+                  {isCommander ? "Planning" : "Objectives"}
+                </h2>
                 <button className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors">
                   <IconPerson />
                 </button>
               </div>
 
-              <div className="flex items-center gap-1">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 text-[14px] font-medium rounded-[4px] transition-colors ${
-                      tab === activeTab
-                        ? "bg-[#161D20] border border-[#3A70E2] text-white"
-                        : "text-[#9A999A] hover:text-white"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+              {isCommander && (
+                <div className="flex items-center gap-1">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-4 py-2 text-[14px] font-medium rounded-[4px] transition-colors ${
+                        tab === activeTab
+                          ? "bg-[#161D20] border border-[#3A70E2] text-white"
+                          : "text-[#9A999A] hover:text-white"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              {activeTab === "Objectives" && (
+              {(isCommander ? activeTab === "Objectives" : true) && (
                 <ObjectivesSection
                   objectives={objectives}
                   onDelete={onDeleteObjective}

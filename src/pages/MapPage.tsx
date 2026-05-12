@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
 import { PlanningPanel, type Objective } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
+import { useUserRole } from "../context/UserRoleContext";
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,9 @@ export default function MapPage() {
   const mapRef          = useRef<MapRef>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
+  const { role } = useUserRole();
+  const isCommander = role === "commander";
+
   // Objectives state (shared between map markers and panel list)
   const [objectives,   setObjectives]   = useState<Objective[]>(INITIAL_OBJECTIVES);
 
@@ -213,6 +217,10 @@ export default function MapPage() {
     setIsDragging(false);
   }
 
+  useEffect(() => {
+    if (!isCommander && isCreating) handleStopCreating();
+  }, [isCommander]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="flex h-screen overflow-hidden bg-secondary-900 font-sans">
       <Navbar
@@ -246,8 +254,8 @@ export default function MapPage() {
           />
         </Map>
 
-        {/* Draggable crosshair */}
-        {isCreating && (
+        {/* Draggable crosshair — Commander only */}
+        {isCommander && isCreating && (
           <div
             style={{
               position:      "absolute",

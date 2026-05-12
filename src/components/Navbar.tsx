@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useUserRole, type UserRole } from "../context/UserRoleContext";
 
 // ─── Icons (inline SVG – zastąp react-icons lub własną ikoną) ─────────────────
 
@@ -136,6 +137,172 @@ export function MenuItem({
   );
 }
 
+// ─── Role data ────────────────────────────────────────────────────────────────
+
+const ROLES: { id: UserRole; label: string; shortLabel: string }[] = [
+  { id: "commander",          label: "Commander",          shortLabel: "CMD" },
+  { id: "operations_officer", label: "Operations Officer", shortLabel: "OPS" },
+];
+
+// ─── Role toast ───────────────────────────────────────────────────────────────
+
+interface RoleToast {
+  title:       string;
+  description: string;
+}
+
+function RoleToastBanner({ toast, onClose }: { toast: RoleToast; onClose: () => void }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 bg-[#0D1112] border border-[#1A2329] rounded-[4px] p-4 shadow-[0px_4px_16px_rgba(0,0,0,0.6)] max-w-[320px]">
+      <div className="shrink-0 size-[32px] rounded-full bg-[#3A70E2] flex items-center justify-center text-white">
+        <svg viewBox="0 0 16 16" fill="none" className="size-[16px]">
+          <circle cx="8" cy="8" r="7" stroke="white" strokeWidth="1.5" />
+          <path d="M8 5v4M8 11v.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-[14px]">{toast.title}</p>
+        <p className="text-[#9A999A] text-[12px] mt-0.5">{toast.description}</p>
+      </div>
+      <button onClick={onClose} className="shrink-0 text-[#9A999A] hover:text-white transition-colors">
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ─── Role switcher + logout ───────────────────────────────────────────────────
+
+function RoleSwitcherAndLogout({ isExpanded, onLogout }: { isExpanded: boolean; onLogout?: () => void }) {
+  const { role, setRole }   = useUserRole();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [toast, setToast]       = useState<RoleToast | null>(null);
+  const containerRef            = useRef<HTMLDivElement>(null);
+
+  const currentRole = ROLES.find((r) => r.id === role)!;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function handleSelectRole(newRole: UserRole) {
+    if (newRole === role) { setMenuOpen(false); return; }
+    setRole(newRole);
+    setMenuOpen(false);
+    setToast({
+      title:       `Switched to ${newRole === "commander" ? "Commander" : "Operations Officer"}`,
+      description: newRole === "commander"
+        ? "You can now create and manage objectives."
+        : "You are viewing objectives assigned to your unit.",
+    });
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        {/* Role switcher */}
+        <div ref={containerRef} className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className={[
+              "w-full flex items-center gap-2 px-4 py-2 rounded-[4px]",
+              "bg-[#0D1112] border border-[#161D20]",
+              "hover:bg-[#161D20] hover:border-[#232E33]",
+              "transition-colors duration-150 cursor-pointer",
+              !isExpanded ? "justify-center" : "",
+            ].join(" ")}
+            title={currentRole.label}
+          >
+            <div className={[
+              "size-[20px] rounded-full shrink-0 flex items-center justify-center",
+              "text-[9px] font-bold text-white",
+              role === "commander" ? "bg-[#5900D9]" : "bg-[#2D57B0]",
+            ].join(" ")}>
+              {currentRole.shortLabel}
+            </div>
+
+            {isExpanded && (
+              <>
+                <span className="flex-1 text-left text-white text-[12px] font-medium font-['Inter',sans-serif] truncate">
+                  {currentRole.label}
+                </span>
+                <svg className="size-[12px] text-[#9A999A] shrink-0" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </>
+            )}
+          </button>
+
+          {menuOpen && (
+            <div className="absolute bottom-full left-0 right-0 mb-1 z-50 bg-[#0D1112] border border-[#232E33] rounded-[4px] shadow-[0px_4px_16px_rgba(0,0,0,0.4)] overflow-hidden">
+              {ROLES.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleSelectRole(r.id)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-[10px] text-left hover:bg-[#161D20] transition-colors duration-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={[
+                      "size-[20px] rounded-full shrink-0 flex items-center justify-center",
+                      "text-[9px] font-bold text-white",
+                      r.id === "commander" ? "bg-[#5900D9]" : "bg-[#2D57B0]",
+                    ].join(" ")}>
+                      {r.shortLabel}
+                    </div>
+                    <span className="text-white text-[13px] font-['Inter',sans-serif]">
+                      {r.label}
+                    </span>
+                  </div>
+                  {role === r.id && (
+                    <svg className="size-[14px] text-[#76FFAE] shrink-0" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={onLogout}
+          className={[
+            "w-full flex items-center gap-1 px-4 py-[10px] rounded",
+            "bg-[#161D20] text-white hover:bg-[#232E33] transition-colors duration-150",
+            !isExpanded ? "justify-center" : "",
+          ].join(" ")}
+          title="Logout"
+        >
+          <IconLogout className="w-6 h-6 shrink-0" />
+          {isExpanded && (
+            <span className="text-[18px] font-semibold leading-[28px] font-['Inter',sans-serif] whitespace-nowrap">
+              Logout
+            </span>
+          )}
+        </button>
+      </div>
+
+      {toast && <RoleToastBanner toast={toast} onClose={() => setToast(null)} />}
+    </>
+  );
+}
+
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 
 type NavbarVariant = "expanded" | "collapsed" | "collapsed+text";
@@ -236,25 +403,8 @@ export function Navbar({
         </div>
       </div>
 
-      {/* ── Bottom: Logout ── */}
-      <div>
-        <button
-          onClick={onLogout}
-          className={[
-            "w-full flex items-center gap-1 px-4 py-[10px] rounded",
-            "bg-[#161D20] text-white hover:bg-[#232E33] transition-colors duration-150",
-            !isExpanded ? "justify-center" : "",
-          ].join(" ")}
-          title="Logout"
-        >
-          <IconLogout className="w-6 h-6 shrink-0" />
-          {isExpanded && (
-            <span className="text-[18px] font-semibold leading-[28px] font-['Inter',sans-serif] whitespace-nowrap">
-              Logout
-            </span>
-          )}
-        </button>
-      </div>
+      {/* ── Bottom: Role switcher + Logout ── */}
+      <RoleSwitcherAndLogout isExpanded={isExpanded} onLogout={onLogout} />
 
       {/* ── Collapse toggle button ── */}
       <button
