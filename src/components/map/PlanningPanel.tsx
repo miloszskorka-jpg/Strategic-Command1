@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { CreateObjectiveForm, CreateObjectiveData } from "./CreateObjectiveForm";
 import { useUserRole } from "../../context/UserRoleContext";
+import { Button } from "../Button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,7 @@ function parseCoords(raw: string): { lat: number; lng: number } {
 function ObjectiveCard({
   obj,
   onDelete,
+  onCreatePlan,
   isSelected,
   isHovered,
   isHoveredByMarker,
@@ -127,6 +129,7 @@ function ObjectiveCard({
 }: {
   obj:               Objective;
   onDelete:          (id: string) => void;
+  onCreatePlan:      (obj: Objective) => void;
   isSelected:        boolean;
   isHovered:         boolean;
   isHoveredByMarker: boolean;
@@ -136,6 +139,7 @@ function ObjectiveCard({
 }) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
+  const isOPS = role === "operations_officer";
 
   const borderBg = isSelected
     ? "border-[#3A70E2] bg-[#0D1112]"
@@ -183,6 +187,19 @@ function ObjectiveCard({
         <span className="text-[#9A999A]"><IconLocation /></span>
         <span className="text-white text-[12px]">{formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}</span>
       </div>
+
+      {isOPS && (
+        <div className="mt-1 pt-3 border-t border-[#161D20]">
+          <Button
+            variant="primary"
+            size="sm"
+            className="w-full"
+            onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
+          >
+            Create Plan
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -219,6 +236,7 @@ function ObjectivesSection({
   objectives,
   onDelete,
   onCreateClick,
+  onCreatePlan,
   hoveredObjectiveId,
   hoveredCardId,
   selectedObjectiveId,
@@ -229,6 +247,7 @@ function ObjectivesSection({
   objectives:          Objective[];
   onDelete:            (id: string) => void;
   onCreateClick:       () => void;
+  onCreatePlan:        (obj: Objective) => void;
   hoveredObjectiveId:  string | null;
   hoveredCardId:       string | null;
   selectedObjectiveId: string | null;
@@ -272,6 +291,7 @@ function ObjectivesSection({
               key={obj.id}
               obj={obj}
               onDelete={onDelete}
+              onCreatePlan={onCreatePlan}
               isSelected={selectedObjectiveId === obj.id}
               isHovered={hoveredCardId === obj.id}
               isHoveredByMarker={hoveredObjectiveId === obj.id}
@@ -288,19 +308,95 @@ function ObjectivesSection({
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ name, onClose }: { name: string; onClose: () => void }) {
+interface ToastData { title: string; description: string; }
+
+function Toast({ data, onClose }: { data: ToastData; onClose: () => void }) {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-start gap-3 bg-[#0D1112] border border-[#1A2329] rounded-[4px] p-4 shadow-[0px_4px_16px_rgba(0,0,0,0.6)] max-w-[320px]">
       <div className="shrink-0 size-[32px] rounded-full bg-[#0C9D61] flex items-center justify-center text-white">
         <IconCheck />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-white font-semibold text-[14px]">New objective has been created</p>
-        <p className="text-[#9A999A] text-[12px] mt-0.5">"{name}" was successfully added to the objectives list.</p>
+        <p className="text-white font-semibold text-[14px]">{data.title}</p>
+        <p className="text-[#9A999A] text-[12px] mt-0.5">{data.description}</p>
       </div>
       <button onClick={onClose} className="shrink-0 text-[#9A999A] hover:text-white transition-colors">
         <IconClose />
       </button>
+    </div>
+  );
+}
+
+// ─── Create Plan form ─────────────────────────────────────────────────────────
+
+function CreatePlanForm({
+  objective,
+  onCancel,
+  onSubmit,
+}: {
+  objective: Objective;
+  onCancel:  () => void;
+  onSubmit:  (name: string, description: string) => void;
+}) {
+  const [form,   setForm]   = useState({ name: "", description: "" });
+  const [errors, setErrors] = useState({ name: false, description: false });
+
+  function handleSubmit() {
+    const e = { name: !form.name.trim(), description: !form.description.trim() };
+    setErrors(e);
+    if (e.name || e.description) return;
+    onSubmit(form.name, form.description);
+  }
+
+  const inputBase =
+    "w-full bg-[#0D1112] rounded-[4px] px-3 py-3 text-white text-[14px] placeholder:text-[#9A999A] border outline-none transition-colors font-['Inter']";
+
+  return (
+    <div className="flex flex-col">
+      <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
+      <div className="border-b border-[#161D20] mt-2 mb-6" />
+
+      <div className="flex items-center gap-2 mb-6 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
+        <img src="/icons/map/target.svg" alt="" className="size-[16px] shrink-0" />
+        <div className="flex flex-col">
+          <span className="text-[#9A999A] text-[11px]">Objective</span>
+          <span className="text-white text-[13px] font-medium">{objective.name}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-white text-[12px]">
+            Name <span className="text-[#EB6F70]">*</span>
+          </label>
+          <input
+            value={form.name}
+            onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); setErrors((p) => ({ ...p, name: false })); }}
+            placeholder="e.g. Flank from the north"
+            className={`${inputBase} ${errors.name ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
+          />
+          {errors.name && <p className="text-[#F64C4C] text-[12px]">Name is required</p>}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-white text-[12px]">
+            Description <span className="text-[#EB6F70]">*</span>
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => { setForm((p) => ({ ...p, description: e.target.value })); setErrors((p) => ({ ...p, description: false })); }}
+            placeholder="Describe the plan in detail"
+            rows={4}
+            className={`${inputBase} resize-none ${errors.description ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
+          />
+          {errors.description && <p className="text-[#F64C4C] text-[12px]">Description is required</p>}
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <Button variant="secondary" size="md" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button variant="primary"   size="md" className="flex-1" onClick={handleSubmit}>Create</Button>
+      </div>
     </div>
   );
 }
@@ -334,16 +430,17 @@ export function PlanningPanel({
   const { role } = useUserRole();
   const isCommander = role === "commander";
 
-  const [activeTab, setActiveTab] = useState<Tab>("Objectives");
-  const [toastName, setToastName] = useState<string | null>(null);
+  const [activeTab,   setActiveTab]   = useState<Tab>("Objectives");
+  const [toast,       setToast]       = useState<ToastData | null>(null);
+  const [planForObj,  setPlanForObj]  = useState<Objective | null>(null);
 
   useEffect(() => {
-    if (!toastName) return;
-    const t = setTimeout(() => setToastName(null), 4000);
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
-  }, [toastName]);
+  }, [toast]);
 
-  function handleCreate(data: CreateObjectiveData) {
+  function handleCreateObjective(data: CreateObjectiveData) {
     const { lat, lng } = parseCoords(data.coordinates);
     const newObj: Objective = {
       id:          String(Date.now()),
@@ -356,8 +453,33 @@ export function PlanningPanel({
     };
     onCreateObjective(newObj);
     onStopCreating();
-    setToastName(data.name);
+    setToast({ title: "New objective has been created", description: `"${data.name}" was successfully added to the objectives list.` });
   }
+
+  function handleOpenPlanForm(obj: Objective) {
+    setPlanForObj(obj);
+    onCardClick(obj.id); // deselect by resetting — actually we pass null-like by clearing selection via parent isn't available, so just open form
+  }
+
+  function handleCancelPlan() {
+    setPlanForObj(null);
+  }
+
+  function handleSubmitPlan(name: string, description: string) {
+    const obj = planForObj!;
+    console.log("New plan created:", {
+      id:          Date.now().toString(),
+      objectiveId: obj.id,
+      name,
+      description,
+      createdAt:   new Date().toISOString(),
+      status:      "DRAFT",
+    });
+    setPlanForObj(null);
+    setToast({ title: "Plan created", description: `"${name}" has been added to ${obj.name}.` });
+  }
+
+  const showingPlanForm = planForObj !== null;
 
   return (
     <>
@@ -368,7 +490,13 @@ export function PlanningPanel({
             <CreateObjectiveForm
               mapClickCoords={mapClickCoords}
               onCancel={onStopCreating}
-              onCreate={handleCreate}
+              onCreate={handleCreateObjective}
+            />
+          ) : showingPlanForm ? (
+            <CreatePlanForm
+              objective={planForObj}
+              onCancel={handleCancelPlan}
+              onSubmit={handleSubmitPlan}
             />
           ) : (
             <>
@@ -404,6 +532,7 @@ export function PlanningPanel({
                   objectives={objectives}
                   onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
+                  onCreatePlan={handleOpenPlanForm}
                   hoveredObjectiveId={hoveredObjectiveId}
                   hoveredCardId={hoveredCardId}
                   selectedObjectiveId={selectedObjectiveId}
@@ -424,7 +553,7 @@ export function PlanningPanel({
         </div>
       </div>
 
-      {toastName && <Toast name={toastName} onClose={() => setToastName(null)} />}
+      {toast && <Toast data={toast} onClose={() => setToast(null)} />}
     </>
   );
 }
