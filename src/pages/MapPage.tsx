@@ -64,8 +64,76 @@ const INITIAL_OBJECTIVES: Objective[] = [
 
 // ─── Objective markers ────────────────────────────────────────────────────────
 
+// ─── Single objective marker with tooltip ─────────────────────────────────────
+
+function ObjectiveMarker({
+  objective,
+  isHovered,
+  isPulsing,
+  onMouseEnter,
+  onMouseLeave,
+  onClick,
+}: {
+  objective:    Objective;
+  isHovered:    boolean;
+  isPulsing:    boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onClick:      () => void;
+}) {
+  return (
+    <div
+      className="relative flex flex-col items-center cursor-pointer"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={onClick}
+      style={{ userSelect: "none" }}
+    >
+      {isHovered && (
+        <div
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] whitespace-nowrap pointer-events-none z-50"
+          style={{
+            backgroundColor: "#0D1112",
+            border:          "1px solid #232E33",
+            borderRadius:    "4px",
+            padding:         "4px 10px",
+            boxShadow:       "0px 2px 8px rgba(0,0,0,0.4)",
+            maxWidth:        "200px",
+            overflow:        "hidden",
+            textOverflow:    "ellipsis",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize:   "12px",
+              lineHeight: "14px",
+              fontWeight: 400,
+              color:      "#FFFFFF",
+            }}
+          >
+            {objective.name}
+          </span>
+        </div>
+      )}
+
+      <div style={{ animation: isPulsing ? "pulse 1s ease-in-out infinite" : "none" }}>
+        <img
+          src="/icons/map/target.svg"
+          alt={objective.name}
+          style={{ width: 36, height: 36, display: "block" }}
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── All objective markers ─────────────────────────────────────────────────────
+
 function ObjectiveMarkers({
   objectives,
+  hoveredObjectiveId,
   hoveredCardId,
   selectedObjectiveId,
   onMarkerHover,
@@ -73,6 +141,7 @@ function ObjectiveMarkers({
   onMarkerClick,
 }: {
   objectives:          Objective[];
+  hoveredObjectiveId:  string | null;
   hoveredCardId:       string | null;
   selectedObjectiveId: string | null;
   onMarkerHover:       (id: string) => void;
@@ -81,29 +150,18 @@ function ObjectiveMarkers({
 }) {
   return (
     <>
-      {objectives.map((obj) => {
-        const shouldPulse = hoveredCardId === obj.id || selectedObjectiveId === obj.id;
-        return (
-          <Marker key={obj.id} longitude={obj.lng} latitude={obj.lat} anchor="center">
-            <div
-              onMouseEnter={() => onMarkerHover(obj.id)}
-              onMouseLeave={onMarkerHoverEnd}
-              onClick={() => onMarkerClick(obj.id)}
-              className="cursor-pointer"
-              style={{
-                animation: shouldPulse ? "pulse 1s ease-in-out infinite" : "none",
-              }}
-            >
-              <img
-                src="/icons/map/target.svg"
-                alt={obj.name}
-                style={{ width: 36, height: 36 }}
-                draggable={false}
-              />
-            </div>
-          </Marker>
-        );
-      })}
+      {objectives.map((obj) => (
+        <Marker key={obj.id} longitude={obj.lng} latitude={obj.lat} anchor="center">
+          <ObjectiveMarker
+            objective={obj}
+            isHovered={hoveredObjectiveId === obj.id}
+            isPulsing={hoveredCardId === obj.id || selectedObjectiveId === obj.id}
+            onMouseEnter={() => onMarkerHover(obj.id)}
+            onMouseLeave={onMarkerHoverEnd}
+            onClick={() => onMarkerClick(obj.id)}
+          />
+        </Marker>
+      ))}
     </>
   );
 }
@@ -246,6 +304,7 @@ export default function MapPage() {
           <MapControls />
           <ObjectiveMarkers
             objectives={objectives}
+            hoveredObjectiveId={hoveredObjectiveId}
             hoveredCardId={hoveredCardId}
             selectedObjectiveId={selectedObjectiveId}
             onMarkerHover={setHoveredObjectiveId}
