@@ -3,7 +3,7 @@ import Map, { Marker, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
-import { PlanningPanel, type Objective } from "../components/map/PlanningPanel";
+import { PlanningPanel, type Objective, type Plan } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
 
@@ -177,7 +177,8 @@ export default function MapPage() {
   const isCommander = role === "commander";
 
   // Objectives state (shared between map markers and panel list)
-  const [objectives,   setObjectives]   = useState<Objective[]>(INITIAL_OBJECTIVES);
+  const [objectives, setObjectives] = useState<Objective[]>(INITIAL_OBJECTIVES);
+  const [plans,      setPlans]      = useState<Plan[]>([]);
 
   // Hover state: marker hover highlights card; card hover pulses marker
   const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
@@ -346,6 +347,8 @@ export default function MapPage() {
         objectives={objectives}
         onCreateObjective={(obj) => setObjectives((prev) => [obj, ...prev])}
         onDeleteObjective={(id) => setObjectives((prev) => prev.filter((o) => o.id !== id))}
+        plans={plans}
+        onPlanCreated={(plan) => setPlans((prev) => [...prev, plan])}
         hoveredObjectiveId={hoveredObjectiveId}
         hoveredCardId={hoveredCardId}
         selectedObjectiveId={selectedObjectiveId}

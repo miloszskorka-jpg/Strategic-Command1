@@ -17,6 +17,15 @@ export interface Objective {
   createdAt:   string;
 }
 
+export interface Plan {
+  id:          string;
+  objectiveId: string;
+  name:        string;
+  description: string;
+  createdAt:   string;
+  status:      "DRAFT";
+}
+
 type Tab = "Objectives" | "Plans" | "Scenarios";
 
 // ─── Status tag ───────────────────────────────────────────────────────────────
@@ -120,6 +129,7 @@ function ObjectiveCard({
   obj,
   onDelete,
   onCreatePlan,
+  objectivePlan,
   isSelected,
   isHovered,
   isHoveredByMarker,
@@ -130,6 +140,7 @@ function ObjectiveCard({
   obj:               Objective;
   onDelete:          (id: string) => void;
   onCreatePlan:      (obj: Objective) => void;
+  objectivePlan:     Plan | undefined;
   isSelected:        boolean;
   isHovered:         boolean;
   isHoveredByMarker: boolean;
@@ -188,16 +199,39 @@ function ObjectiveCard({
         <span className="text-white text-[12px]">{formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}</span>
       </div>
 
+      {objectivePlan && (
+        <>
+          <div className="border-t border-[#161D20] mt-1" />
+          <div className="flex items-center justify-between">
+            <span className="text-[#9A999A] text-[11px]">Plan:</span>
+            <span className="text-[#9A999A] text-[11px]">{formatTimestamp(objectivePlan.createdAt)}</span>
+          </div>
+          <p className="text-white text-[13px] font-semibold font-['Inter']">{objectivePlan.name}</p>
+          <p className={`text-white text-[12px] font-['Inter'] ${isSelected ? "" : "line-clamp-2"}`}>
+            {objectivePlan.description}
+          </p>
+        </>
+      )}
+
       {isOPS && (
         <div className="mt-1 pt-3 border-t border-[#161D20]">
-          <Button
-            variant="primary"
-            size="sm"
-            className="w-full"
-            onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
-          >
-            Create Plan
-          </Button>
+          {objectivePlan ? (
+            <div className="flex items-center gap-1">
+              <svg className="size-[12px] text-[#76FFAE]" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-[#76FFAE] text-[11px] font-['Inter']">Plan added</span>
+            </div>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full"
+              onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
+            >
+              Create Plan
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -234,6 +268,7 @@ function FilterSelect({ value, onChange }: { value: FilterValue; onChange: (v: F
 
 function ObjectivesSection({
   objectives,
+  plans,
   onDelete,
   onCreateClick,
   onCreatePlan,
@@ -245,6 +280,7 @@ function ObjectivesSection({
   onCardClick,
 }: {
   objectives:          Objective[];
+  plans:               Plan[];
   onDelete:            (id: string) => void;
   onCreateClick:       () => void;
   onCreatePlan:        (obj: Objective) => void;
@@ -292,6 +328,7 @@ function ObjectivesSection({
               obj={obj}
               onDelete={onDelete}
               onCreatePlan={onCreatePlan}
+              objectivePlan={plans.find((p) => p.objectiveId === obj.id)}
               isSelected={selectedObjectiveId === obj.id}
               isHovered={hoveredCardId === obj.id}
               isHoveredByMarker={hoveredObjectiveId === obj.id}
@@ -356,13 +393,37 @@ function CreatePlanForm({
       <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
       <div className="border-b border-[#161D20] mt-2 mb-6" />
 
-      <div className="flex items-center gap-2 mb-6 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
-        <img src="/icons/map/target.svg" alt="" className="size-[16px] shrink-0" />
-        <div className="flex flex-col">
-          <span className="text-[#9A999A] text-[11px]">Objective</span>
-          <span className="text-white text-[13px] font-medium">{objective.name}</span>
+      <div className="mb-6 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <img src="/icons/map/target.svg" alt="" className="size-[16px] shrink-0" />
+          <span className="text-white text-[14px] font-semibold font-['Inter']">{objective.name}</span>
+          <StatusTag status={objective.status} />
+        </div>
+
+        <div className="border-t border-[#161D20]" />
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[#9A999A] text-[11px] font-['Inter']">Description:</span>
+          <span className="text-white text-[12px] font-['Inter']">{objective.description}</span>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[#9A999A] text-[11px] font-['Inter']">Coordinates:</span>
+          <div className="flex items-center gap-1">
+            <img src="/icons/map/my_location.svg" alt="" className="size-[12px]" />
+            <span className="text-white text-[12px] font-['Inter']">
+              {objective.lat.toFixed(6)},&nbsp;&nbsp;{objective.lng.toFixed(6)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[#9A999A] text-[11px] font-['Inter']">Created:</span>
+          <span className="text-white text-[12px] font-['Inter']">{formatTimestamp(objective.createdAt)}</span>
         </div>
       </div>
+
+      <div className="border-t border-[#161D20] mb-6" />
 
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col gap-1.5">
@@ -413,6 +474,8 @@ export interface PlanningPanelProps {
   objectives:          Objective[];
   onCreateObjective:   (obj: Objective) => void;
   onDeleteObjective:   (id: string) => void;
+  plans:               Plan[];
+  onPlanCreated:       (plan: Plan) => void;
   hoveredObjectiveId:  string | null;
   hoveredCardId:       string | null;
   selectedObjectiveId: string | null;
@@ -424,6 +487,7 @@ export interface PlanningPanelProps {
 export function PlanningPanel({
   isCreating, onStartCreating, onStopCreating, mapClickCoords,
   objectives, onCreateObjective, onDeleteObjective,
+  plans, onPlanCreated,
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
 }: PlanningPanelProps) {
@@ -467,14 +531,15 @@ export function PlanningPanel({
 
   function handleSubmitPlan(name: string, description: string) {
     const obj = planForObj!;
-    console.log("New plan created:", {
+    const newPlan: Plan = {
       id:          Date.now().toString(),
       objectiveId: obj.id,
       name,
       description,
       createdAt:   new Date().toISOString(),
       status:      "DRAFT",
-    });
+    };
+    onPlanCreated(newPlan);
     setPlanForObj(null);
     setToast({ title: "Plan created", description: `"${name}" has been added to ${obj.name}.` });
   }
@@ -530,6 +595,7 @@ export function PlanningPanel({
               {(isCommander ? activeTab === "Objectives" : true) && (
                 <ObjectivesSection
                   objectives={objectives}
+                  plans={plans}
                   onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
                   onCreatePlan={handleOpenPlanForm}
