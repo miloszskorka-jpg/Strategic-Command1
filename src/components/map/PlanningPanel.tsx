@@ -364,6 +364,62 @@ function Toast({ data, onClose }: { data: ToastData; onClose: () => void }) {
   );
 }
 
+// ─── Collapsible objective info ───────────────────────────────────────────────
+
+function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div
+      className={`rounded-[4px] border cursor-pointer transition-colors duration-150 mb-6 ${
+        isExpanded ? "border-[#232E33] bg-[#0D1112]" : "border-[#161D20] bg-[#0D1112] hover:border-[#232E33]"
+      }`}
+      onClick={() => setIsExpanded((v) => !v)}
+    >
+      <div className="flex items-center gap-2 p-3">
+        <span className="text-[#9A999A] text-[12px] font-['Inter'] whitespace-nowrap">
+          {formatTimestamp(objective.createdAt)}
+        </span>
+        <img src="/icons/map/target.svg" className="size-[16px] shrink-0" draggable={false} />
+        <span className="text-white text-[14px] font-semibold font-['Inter'] flex-1 truncate">
+          {objective.name}
+        </span>
+        <StatusTag status={objective.status} />
+        <svg
+          className={`size-[16px] text-[#9A999A] shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
+          viewBox="0 0 16 16"
+          fill="none"
+        >
+          <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      <div
+        className={`overflow-hidden transition-all duration-200 ${
+          isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <div className="border-t border-[#161D20] mx-3" />
+        <div className="p-3 pt-2 flex flex-col gap-2">
+          <div className="flex flex-col gap-[2px]">
+            <span className="text-[#9A999A] text-[11px] font-['Inter']">Description:</span>
+            <span className="text-white text-[12px] font-['Inter']">{objective.description}</span>
+          </div>
+          <div className="flex flex-col gap-[2px]">
+            <span className="text-[#9A999A] text-[11px] font-['Inter']">Coordinates:</span>
+            <div className="flex items-center gap-1">
+              <img src="/icons/map/my_location.svg" className="size-[12px] shrink-0" />
+              <span className="text-white text-[12px] font-['Inter']">
+                {objective.lat.toFixed(6)},&nbsp;&nbsp;{objective.lng.toFixed(6)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Create Plan form ─────────────────────────────────────────────────────────
 
 function CreatePlanForm({
@@ -393,35 +449,7 @@ function CreatePlanForm({
       <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
       <div className="border-b border-[#161D20] mt-2 mb-6" />
 
-      <div className="mb-6 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <img src="/icons/map/target.svg" alt="" className="size-[16px] shrink-0" />
-          <span className="text-white text-[14px] font-semibold font-['Inter']">{objective.name}</span>
-          <StatusTag status={objective.status} />
-        </div>
-
-        <div className="border-t border-[#161D20]" />
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[#9A999A] text-[11px] font-['Inter']">Description:</span>
-          <span className="text-white text-[12px] font-['Inter']">{objective.description}</span>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[#9A999A] text-[11px] font-['Inter']">Coordinates:</span>
-          <div className="flex items-center gap-1">
-            <img src="/icons/map/my_location.svg" alt="" className="size-[12px]" />
-            <span className="text-white text-[12px] font-['Inter']">
-              {objective.lat.toFixed(6)},&nbsp;&nbsp;{objective.lng.toFixed(6)}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <span className="text-[#9A999A] text-[11px] font-['Inter']">Created:</span>
-          <span className="text-white text-[12px] font-['Inter']">{formatTimestamp(objective.createdAt)}</span>
-        </div>
-      </div>
+      <CollapsibleObjectiveInfo objective={objective} />
 
       <div className="border-t border-[#161D20] mb-6" />
 
