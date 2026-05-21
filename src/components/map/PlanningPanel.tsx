@@ -441,16 +441,55 @@ function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
   );
 }
 
+// ─── Plan card ────────────────────────────────────────────────────────────────
+
+function PlanCard({ plan, onAddScenario }: { plan: Plan; onAddScenario: () => void }) {
+  return (
+    <div className="w-full rounded-[8px] border border-[#161D20] bg-[#0D1112] p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between">
+        <span className="text-[#9A999A] text-[12px] font-normal font-['Inter']">{formatDate(plan.createdAt)}</span>
+        <button className="size-[32px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors duration-150 cursor-pointer">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2.667v-2.667L11.333 2.667z" stroke="white" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="size-[24px] rounded-[4px] shrink-0 bg-[#2D57B0] flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M2 4h10M2 7h10M2 10h6" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+        <span className="text-white text-[14px] font-semibold font-['Inter'] flex-1 min-w-0 truncate">{plan.name}</span>
+        <span className="text-[#9A999A] text-[11px] font-normal font-['Inter'] border border-[#555455] rounded-[4px] px-[8px] py-[2px] whitespace-nowrap shrink-0">
+          Draft
+        </span>
+      </div>
+
+      <div>
+        <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-1">Description:</p>
+        <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
+      </div>
+
+      <button
+        onClick={onAddScenario}
+        className="w-full h-[40px] flex items-center justify-center bg-[#0C9D61] hover:bg-[#097A4B] rounded-[4px] mt-1 text-white text-[16px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer"
+      >
+        Add Scenario
+      </button>
+    </div>
+  );
+}
+
 // ─── Create Plan form ─────────────────────────────────────────────────────────
 
 function CreatePlanForm({
-  objective,
   onCancel,
   onSubmit,
 }: {
-  objective: Objective;
-  onCancel:  () => void;
-  onSubmit:  (name: string, description: string) => void;
+  onCancel: () => void;
+  onSubmit: (name: string, description: string) => void;
 }) {
   const [form,   setForm]   = useState({ name: "", description: "" });
   const [errors, setErrors] = useState({ name: false, description: false });
@@ -466,44 +505,35 @@ function CreatePlanForm({
     "w-full bg-[#0D1112] rounded-[4px] px-3 py-3 text-white text-[14px] placeholder:text-[#9A999A] border outline-none transition-colors font-['Inter']";
 
   return (
-    <div className="flex flex-col">
-      <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
-      <div className="border-b border-[#161D20] mt-2 mb-6" />
-
-      <CollapsibleObjectiveInfo objective={objective} />
-
-      <div className="border-t border-[#161D20] mb-6" />
-
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-white text-[12px]">
-            Name <span className="text-[#EB6F70]">*</span>
-          </label>
-          <input
-            value={form.name}
-            onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); setErrors((p) => ({ ...p, name: false })); }}
-            placeholder="e.g. Flank from the north"
-            className={`${inputBase} ${errors.name ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
-          />
-          {errors.name && <p className="text-[#F64C4C] text-[12px]">Name is required</p>}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-white text-[12px]">
-            Description <span className="text-[#EB6F70]">*</span>
-          </label>
-          <textarea
-            value={form.description}
-            onChange={(e) => { setForm((p) => ({ ...p, description: e.target.value })); setErrors((p) => ({ ...p, description: false })); }}
-            placeholder="Describe the plan in detail"
-            rows={4}
-            className={`${inputBase} resize-none ${errors.description ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
-          />
-          {errors.description && <p className="text-[#F64C4C] text-[12px]">Description is required</p>}
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-white text-[12px]">
+          Name <span className="text-[#EB6F70]">*</span>
+        </label>
+        <input
+          value={form.name}
+          onChange={(e) => { setForm((p) => ({ ...p, name: e.target.value })); setErrors((p) => ({ ...p, name: false })); }}
+          placeholder="e.g. Flank from the north"
+          className={`${inputBase} ${errors.name ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
+        />
+        {errors.name && <p className="text-[#F64C4C] text-[12px]">Name is required</p>}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-white text-[12px]">
+          Description <span className="text-[#EB6F70]">*</span>
+        </label>
+        <textarea
+          value={form.description}
+          onChange={(e) => { setForm((p) => ({ ...p, description: e.target.value })); setErrors((p) => ({ ...p, description: false })); }}
+          placeholder="Describe the plan in detail"
+          rows={4}
+          className={`${inputBase} resize-none ${errors.description ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"}`}
+        />
+        {errors.description && <p className="text-[#F64C4C] text-[12px]">Description is required</p>}
+      </div>
+
+      <div className="flex gap-3 mt-2">
         <Button variant="secondary" size="md" className="flex-1" onClick={onCancel}>Cancel</Button>
         <Button variant="primary"   size="md" className="flex-1" onClick={handleSubmit}>Create</Button>
       </div>
@@ -543,9 +573,10 @@ export function PlanningPanel({
   const { role } = useUserRole();
   const isCommander = role === "commander";
 
-  const [activeTab,   setActiveTab]   = useState<Tab>("Objectives");
-  const [toast,       setToast]       = useState<ToastData | null>(null);
-  const [planForObj,  setPlanForObj]  = useState<Objective | null>(null);
+  const [activeTab,      setActiveTab]      = useState<Tab>("Objectives");
+  const [toast,          setToast]          = useState<ToastData | null>(null);
+  const [planForObj,     setPlanForObj]     = useState<Objective | null>(null);
+  const [submittedPlan,  setSubmittedPlan]  = useState<Plan | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -571,11 +602,12 @@ export function PlanningPanel({
 
   function handleOpenPlanForm(obj: Objective) {
     setPlanForObj(obj);
-    onCardClick(obj.id); // deselect by resetting — actually we pass null-like by clearing selection via parent isn't available, so just open form
+    setSubmittedPlan(null);
   }
 
-  function handleCancelPlan() {
+  function handleBack() {
     setPlanForObj(null);
+    setSubmittedPlan(null);
   }
 
   function handleSubmitPlan(name: string, description: string) {
@@ -589,7 +621,7 @@ export function PlanningPanel({
       status:      "DRAFT",
     };
     onPlanCreated(newPlan);
-    setPlanForObj(null);
+    setSubmittedPlan(newPlan);
     setToast({ title: "Plan created", description: `"${name}" has been added to ${obj.name}.` });
   }
 
@@ -607,11 +639,31 @@ export function PlanningPanel({
               onCreate={handleCreateObjective}
             />
           ) : showingPlanForm ? (
-            <CreatePlanForm
-              objective={planForObj}
-              onCancel={handleCancelPlan}
-              onSubmit={handleSubmitPlan}
-            />
+            <div className="flex flex-col">
+              {/* Header with back button */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleBack}
+                  className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors cursor-pointer"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
+              </div>
+              <div className="border-b border-[#161D20] mt-2 mb-6" />
+
+              <CollapsibleObjectiveInfo objective={planForObj} />
+
+              <div className="border-t border-[#161D20] mb-6" />
+
+              {submittedPlan ? (
+                <PlanCard plan={submittedPlan} onAddScenario={() => {}} />
+              ) : (
+                <CreatePlanForm onCancel={handleBack} onSubmit={handleSubmitPlan} />
+              )}
+            </div>
           ) : (
             <>
               <div className="flex items-center justify-between">
