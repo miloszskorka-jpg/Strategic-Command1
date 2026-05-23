@@ -7,7 +7,7 @@ import { PlanningPanel, type Objective, type Plan, type ScenarioMode } from "../
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
 import { Button } from "../components/Button";
-import { UnitMarker, type UnitType } from "../components/map/UnitMarker";
+import { UnitMarkerSVG, type UnitType } from "../components/map/UnitMarkerSVG";
 
 // ─── Scenario types & data ────────────────────────────────────────────────────
 
@@ -31,31 +31,25 @@ interface UnitMove {
 }
 
 const MOCK_UNITS: MapUnit[] = [
-  { id: "plt-art-1",  name: "PLT_ART_1",    lat: 43.660, lng: 1.185, unitType: "Platoon (artillery)", parentId: null         },
-  { id: "plt-art-2",  name: "PLT_ART_2",    lat: 43.655, lng: 1.165, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
-  { id: "plt-art-3",  name: "PLT_ART_3",    lat: 43.655, lng: 1.200, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
-  { id: "plt-art-4",  name: "PLT_ART_4",    lat: 43.650, lng: 1.215, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
-  { id: "sq-art-1",   name: "SQ_ART_1",     lat: 43.635, lng: 1.140, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-2",   name: "SQ_ART_2",     lat: 43.630, lng: 1.155, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-3",   name: "SQ_ART_3",     lat: 43.632, lng: 1.170, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-4",   name: "SQ_ART_4",     lat: 43.634, lng: 1.185, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-5",   name: "SQ_ART_5",     lat: 43.633, lng: 1.198, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-6",   name: "SQ_ART_6",     lat: 43.636, lng: 1.210, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "sq-art-7",   name: "SQ_ART_7",     lat: 43.637, lng: 1.222, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
-  { id: "co-inf-1",   name: "CO_INF_1",     lat: 43.620, lng: 1.240, unitType: "Company (infantry)",  parentId: null         },
-  { id: "plt-inf-1",  name: "PLT_INF_1",    lat: 43.608, lng: 1.198, unitType: "Platoon (infantry)",  parentId: "co-inf-1"  },
-  { id: "plt-inf-2",  name: "PLT_INF_2",    lat: 43.615, lng: 1.245, unitType: "Platoon (infantry)",  parentId: "co-inf-1"  },
-  { id: "sq-inf-1",   name: "SQ_INF_1",     lat: 43.600, lng: 1.163, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "sq-inf-2",   name: "SQ_INF_2",     lat: 43.593, lng: 1.172, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "sq-inf-3",   name: "SQ_INF_3",     lat: 43.587, lng: 1.183, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "sq-inf-4",   name: "SQ_INF_4",     lat: 43.583, lng: 1.196, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "sq-inf-5",   name: "SQ_INF_5",     lat: 43.582, lng: 1.212, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "sq-inf-6",   name: "SQ_INF_6",     lat: 43.583, lng: 1.228, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
-  { id: "plt-art-d1", name: "PLT_ART_D1",   lat: 43.575, lng: 1.255, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
-  { id: "plt-art-d2", name: "PLT_ART_D2",   lat: 43.565, lng: 1.245, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
-  { id: "plt-art-d3", name: "PLT_ART_D3",   lat: 43.567, lng: 1.265, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
-  { id: "sq-inf-r1",  name: "SQ_INF_R1",    lat: 43.597, lng: 1.255, unitType: "Squad (infantry)",    parentId: "plt-inf-2" },
-  { id: "sq-inf-r2",  name: "SQ_INF_R2",    lat: 43.590, lng: 1.265, unitType: "Squad (infantry)",    parentId: "plt-inf-2" },
+  { id: "bat-1",      name: "BAT_1",      lat: 47.5680, lng: 34.3960, unitType: "Battalion",           parentId: null                       },
+  { id: "co-inf-1",   name: "CO_INF_1",   lat: 47.5820, lng: 34.3700, unitType: "Company (infantry)",  parentId: "bat-1"                    },
+  { id: "co-inf-2",   name: "CO_INF_2",   lat: 47.5820, lng: 34.4200, unitType: "Company (infantry)",  parentId: "bat-1"                    },
+  { id: "plt-art-1",  name: "PLT_ART_1",  lat: 47.5520, lng: 34.3960, unitType: "Platoon (artillery)", parentId: "bat-1"                    },
+  { id: "plt-inf-1",  name: "PLT_INF_1",  lat: 47.5940, lng: 34.3540, unitType: "Platoon (infantry)",  parentId: "co-inf-1"                 },
+  { id: "plt-inf-2",  name: "PLT_INF_2",  lat: 47.5920, lng: 34.3860, unitType: "Platoon (infantry)",  parentId: "co-inf-1"                 },
+  { id: "plt-inf-3",  name: "PLT_INF_3",  lat: 47.5940, lng: 34.4100, unitType: "Platoon (infantry)",  parentId: "co-inf-2"                 },
+  { id: "plt-inf-4",  name: "PLT_INF_4",  lat: 47.5920, lng: 34.4380, unitType: "Platoon (infantry)",  parentId: "co-inf-2"                 },
+  { id: "sq-inf-1",   name: "SQ_INF_1",   lat: 47.5990, lng: 34.3440, unitType: "Squad (infantry)",    parentId: "plt-inf-1"                },
+  { id: "sq-inf-2",   name: "SQ_INF_2",   lat: 47.6020, lng: 34.3600, unitType: "Squad (infantry)",    parentId: "plt-inf-1"                },
+  { id: "sq-inf-3",   name: "SQ_INF_3",   lat: 47.5970, lng: 34.3760, unitType: "Squad (infantry)",    parentId: "plt-inf-2"                },
+  { id: "sq-inf-4",   name: "SQ_INF_4",   lat: 47.6000, lng: 34.3920, unitType: "Squad (infantry)",    parentId: "plt-inf-2"                },
+  { id: "sq-inf-5",   name: "SQ_INF_5",   lat: 47.5990, lng: 34.4040, unitType: "Squad (infantry)",    parentId: "plt-inf-3"                },
+  { id: "sq-inf-6",   name: "SQ_INF_6",   lat: 47.6020, lng: 34.4200, unitType: "Squad (infantry)",    parentId: "plt-inf-3"                },
+  { id: "sq-inf-7",   name: "SQ_INF_7",   lat: 47.5970, lng: 34.4320, unitType: "Squad (infantry)",    parentId: "plt-inf-4"                },
+  { id: "sq-inf-8",   name: "SQ_INF_8",   lat: 47.6000, lng: 34.4460, unitType: "Squad (infantry)",    parentId: "plt-inf-4"                },
+  { id: "sq-art-1",   name: "SQ_ART_1",   lat: 47.5440, lng: 34.3840, unitType: "Squad (artillery)",   parentId: "plt-art-1"                },
+  { id: "sq-art-2",   name: "SQ_ART_2",   lat: 47.5440, lng: 34.4080, unitType: "Squad (artillery)",   parentId: "plt-art-1"                },
+  { id: "sq-art-3",   name: "SQ_ART_3",   lat: 47.5410, lng: 34.3960, unitType: "Squad (artillery)",   parentId: "plt-art-1", disabled: true },
 ];
 
 // ─── GeoJSON helpers ──────────────────────────────────────────────────────────
@@ -452,7 +446,7 @@ export default function MapPage() {
         <Map
           ref={mapRef}
           id="main-map"
-          initialViewState={{ longitude: 15, latitude: 48, zoom: 4 }}
+          initialViewState={{ longitude: 34.3960, latitude: 47.5680, zoom: 11 }}
           style={{ width: "100%", height: "100%", pointerEvents: isDragging ? "none" : undefined }}
           mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
@@ -514,7 +508,7 @@ export default function MapPage() {
                 {move && (
                   <Marker longitude={originalUnit.lng} latitude={originalUnit.lat} anchor="center">
                     <div style={{ opacity: 0.4, pointerEvents: "none" }}>
-                      <UnitMarker unitType={unit.unitType} state="Default" />
+                      <UnitMarkerSVG unitType={unit.unitType} />
                     </div>
                   </Marker>
                 )}
@@ -533,9 +527,10 @@ export default function MapPage() {
                     onClick={() => setSelectedUnitId((prev) => prev === unit.id ? null : unit.id)}
                     style={{ cursor: canDrag ? "grab" : "default" }}
                   >
-                    <UnitMarker
+                    <UnitMarkerSVG
                       unitType={unit.unitType}
-                      state={unit.disabled ? "Disabled" : isHovered ? "Hover" : "Default"}
+                      disabled={!!unit.disabled}
+                      hovered={isHovered}
                       selected={isSelected}
                     />
                   </div>
