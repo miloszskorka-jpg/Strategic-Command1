@@ -28,6 +28,8 @@ export interface Plan {
 
 type Tab = "Objectives" | "Plans" | "Scenarios";
 
+export type ScenarioMode = "move_units" | "fire_mission";
+
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<ObjectiveStatus, string> = {
@@ -538,26 +540,108 @@ function CreatePlanForm({
   );
 }
 
+// ─── Add Scenario panel ───────────────────────────────────────────────────────
+
+function AddScenarioPanel({
+  onBack,
+  scenarioMode,
+  onModeChange,
+  unitMovesCount,
+  onCreate,
+}: {
+  onBack:         () => void;
+  scenarioMode:   ScenarioMode;
+  onModeChange:   (mode: ScenarioMode) => void;
+  unitMovesCount: number;
+  onCreate:       () => void;
+}) {
+  return (
+    <div className="flex flex-col flex-1">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="size-[40px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors cursor-pointer"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 12L6 8L10 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <h2 className="text-white text-[24px] font-semibold font-['Inter']">Add Scenario</h2>
+      </div>
+      <div className="border-b border-[#161D20] mt-4 mb-6" />
+
+      <div className="flex w-full border border-[#161D20] rounded-[4px] mb-6 overflow-hidden">
+        {(["move_units", "fire_mission"] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => onModeChange(mode)}
+            className={`flex-1 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
+              scenarioMode === mode
+                ? "bg-[#2D57B0] text-[#4BA1FF]"
+                : "bg-transparent text-[#4BA1FF] hover:bg-[#161D20]"
+            }`}
+          >
+            {mode === "move_units" ? "Move Units" : "Fire Mission"}
+          </button>
+        ))}
+      </div>
+
+      {scenarioMode === "move_units" && (
+        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] mb-6">
+          <div className="size-[24px] rounded-full shrink-0 mt-[1px] bg-[#232E33] border border-[#465C66] flex items-center justify-center">
+            <span className="text-[#9A999A] text-[12px] font-bold">?</span>
+          </div>
+          <div>
+            <p className="text-white text-[13px] font-semibold font-['Inter'] mb-1">Move Squad Units</p>
+            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter']">
+              To reposition a unit, drag it directly on the map. This action is available only for Squad units.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-auto pt-4">
+        <Button
+          variant="primary"
+          size="lg"
+          className="w-full"
+          onClick={onCreate}
+          disabled={unitMovesCount === 0}
+        >
+          Create
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
 
 export interface PlanningPanelProps {
-  isCreating:          boolean;
-  onStartCreating:     () => void;
-  onStopCreating:      () => void;
-  mapClickCoords:      string;
-  objectives:          Objective[];
-  onCreateObjective:   (obj: Objective) => void;
-  onDeleteObjective:   (id: string) => void;
-  plans:               Plan[];
-  onPlanCreated:       (plan: Plan) => void;
-  hoveredObjectiveId:  string | null;
-  hoveredCardId:       string | null;
-  selectedObjectiveId: string | null;
-  onCardHover:         (id: string) => void;
-  onCardHoverEnd:      () => void;
-  onCardClick:         (id: string) => void;
+  isCreating:           boolean;
+  onStartCreating:      () => void;
+  onStopCreating:       () => void;
+  mapClickCoords:       string;
+  objectives:           Objective[];
+  onCreateObjective:    (obj: Objective) => void;
+  onDeleteObjective:    (id: string) => void;
+  plans:                Plan[];
+  onPlanCreated:        (plan: Plan) => void;
+  hoveredObjectiveId:   string | null;
+  hoveredCardId:        string | null;
+  selectedObjectiveId:  string | null;
+  onCardHover:          (id: string) => void;
+  onCardHoverEnd:       () => void;
+  onCardClick:          (id: string) => void;
+  isAddingScenario:     boolean;
+  scenarioMode:         ScenarioMode;
+  unitMovesCount:       number;
+  onAddScenario:        (plan: Plan) => void;
+  onBackFromScenario:   () => void;
+  onScenarioModeChange: (mode: ScenarioMode) => void;
+  onCreateScenario:     () => void;
 }
 
 export function PlanningPanel({
@@ -566,6 +650,8 @@ export function PlanningPanel({
   plans, onPlanCreated,
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
+  isAddingScenario, scenarioMode, unitMovesCount,
+  onAddScenario, onBackFromScenario, onScenarioModeChange, onCreateScenario,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -633,7 +719,15 @@ export function PlanningPanel({
       <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-y-auto flex flex-col">
         <div className="p-6 flex flex-col gap-5 flex-1">
 
-          {isCreating ? (
+          {isAddingScenario ? (
+            <AddScenarioPanel
+              onBack={onBackFromScenario}
+              scenarioMode={scenarioMode}
+              onModeChange={onScenarioModeChange}
+              unitMovesCount={unitMovesCount}
+              onCreate={onCreateScenario}
+            />
+          ) : isCreating ? (
             <CreateObjectiveForm
               mapClickCoords={mapClickCoords}
               onCancel={onStopCreating}
@@ -674,7 +768,7 @@ export function PlanningPanel({
                       .filter((p) => p.objectiveId === planForObj.id)
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                       .map((plan) => (
-                        <PlanCard key={plan.id} plan={plan} onAddScenario={() => {}} />
+                        <PlanCard key={plan.id} plan={plan} onAddScenario={() => onAddScenario(plan)} />
                       ))
                     }
                   </div>

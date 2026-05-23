@@ -1,11 +1,78 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import Map, { Marker, type MapRef } from "react-map-gl/mapbox";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
-import { PlanningPanel, type Objective, type Plan } from "../components/map/PlanningPanel";
+import { PlanningPanel, type Objective, type Plan, type ScenarioMode } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
+import { Button } from "../components/Button";
+
+// ─── Scenario types & data ────────────────────────────────────────────────────
+
+interface MapUnit {
+  id:   string;
+  name: string;
+  lat:  number;
+  lng:  number;
+  type: "squad" | "platoon" | "company";
+}
+
+interface UnitMove {
+  unitId:   string;
+  unitName: string;
+  fromLat:  number;
+  fromLng:  number;
+  toLat:    number;
+  toLng:    number;
+}
+
+const MOCK_UNITS: MapUnit[] = [
+  { id: "alfa",    name: "ALFA_Squad",    lat: 43.62, lng: 1.20, type: "squad" },
+  { id: "bravo",   name: "BRAVO_Squad",   lat: 43.61, lng: 1.18, type: "squad" },
+  { id: "charlie", name: "CHARLIE_Squad", lat: 43.63, lng: 1.22, type: "squad" },
+  { id: "delta",   name: "DELTA_Squad",   lat: 43.60, lng: 1.16, type: "squad" },
+];
+
+// ─── Unit icon ────────────────────────────────────────────────────────────────
+
+function UnitIcon({ unit }: { unit: MapUnit }) {
+  return (
+    <div className="size-[32px] bg-[#2D57B0] border-2 border-[#4BA1FF] rounded-[4px] flex items-center justify-center shadow-[0px_2px_8px_rgba(0,0,0,0.5)]">
+      <img src="/icons/map/groups.svg" alt={unit.name} className="size-[18px]" draggable={false} />
+    </div>
+  );
+}
+
+// ─── Movement arrow ───────────────────────────────────────────────────────────
+
+function MovementArrow({ move }: { move: UnitMove }) {
+  const geojson = {
+    type: "Feature" as const,
+    geometry: {
+      type: "LineString" as const,
+      coordinates: [
+        [move.fromLng, move.fromLat],
+        [move.toLng,   move.toLat],
+      ],
+    },
+    properties: {},
+  };
+
+  return (
+    <Source id={`move-${move.unitId}`} type="geojson" data={geojson}>
+      <Layer
+        id={`move-line-${move.unitId}`}
+        type="line"
+        paint={{
+          "line-color": "#76FFAE",
+          "line-width": 2,
+          "line-dasharray": [4, 2],
+        }}
+      />
+    </Source>
+  );
+}
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 
@@ -180,6 +247,13 @@ export default function MapPage() {
   const [objectives, setObjectives] = useState<Objective[]>(INITIAL_OBJECTIVES);
   const [plans,      setPlans]      = useState<Plan[]>([]);
 
+  // Scenario state
+  const [isAddingScenario, setIsAddingScenario] = useState(false);
+  const [scenarioForPlan,  setScenarioForPlan]  = useState<Plan | null>(null);
+  const [scenarioMode,     setScenarioMode]     = useState<ScenarioMode>("move_units");
+  const [unitMoves,        setUnitMoves]        = useState<UnitMove[]>([]);
+  const [pendingMove,      setPendingMove]      = useState<UnitMove | null>(null);
+
   // Hover state: marker hover highlights card; card hover pulses marker
   const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
   const [hoveredCardId,       setHoveredCardId]       = useState<string | null>(null);
@@ -280,6 +354,51 @@ export default function MapPage() {
     if (!isCommander && isCreating) handleStopCreating();
   }, [isCommander]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Scenario handlers ──────────────────────────────────────────────────────
+
+  function handleAddScenario(plan: Plan) {
+    setIsAddingScenario(true);
+    setScenarioForPlan(plan);
+    setScenarioMode("move_units");
+    setUnitMoves([]);
+    setPendingMove(null);
+  }
+
+  function handleBackFromScenario() {
+    setIsAddingScenario(false);
+    setScenarioForPlan(null);
+    setUnitMoves([]);
+    setPendingMove(null);
+  }
+
+  function handleUnitDragEnd(unit: MapUnit, lngLat: { lat: number; lng: number }) {
+    const existing = unitMoves.find((m) => m.unitId === unit.id);
+    setPendingMove({
+      unitId:   unit.id,
+      unitName: unit.name,
+      fromLat:  existing ? existing.fromLat : unit.lat,
+      fromLng:  existing ? existing.fromLng : unit.lng,
+      toLat:    lngLat.lat,
+      toLng:    lngLat.lng,
+    });
+  }
+
+  function handleConfirmMove() {
+    if (!pendingMove) return;
+    setUnitMoves((prev) => [...prev.filter((m) => m.unitId !== pendingMove.unitId), pendingMove]);
+    setPendingMove(null);
+  }
+
+  function handleCreateScenario() {
+    setIsAddingScenario(false);
+    setScenarioForPlan(null);
+    setUnitMoves([]);
+    setPendingMove(null);
+  }
+
+  // suppress unused warning — scenarioForPlan will be used when scenario submission is wired
+  void scenarioForPlan;
+
   return (
     <div className="flex h-screen overflow-hidden bg-secondary-900 font-sans">
       <Navbar
@@ -312,6 +431,43 @@ export default function MapPage() {
             onMarkerHoverEnd={() => setHoveredObjectiveId(null)}
             onMarkerClick={handleObjectiveClick}
           />
+
+          {/* Unit markers — visible only in Add Scenario mode */}
+          {isAddingScenario && MOCK_UNITS.map((unit) => {
+            const move       = unitMoves.find((m) => m.unitId === unit.id);
+            const currentLat = move ? move.toLat : unit.lat;
+            const currentLng = move ? move.toLng : unit.lng;
+            const canDrag    = scenarioMode === "move_units";
+
+            return (
+              <Fragment key={unit.id}>
+                {/* Ghost at original position when unit has been moved */}
+                {move && (
+                  <Marker longitude={unit.lng} latitude={unit.lat} anchor="center">
+                    <div style={{ opacity: 0.4, pointerEvents: "none" }}>
+                      <UnitIcon unit={unit} />
+                    </div>
+                  </Marker>
+                )}
+
+                {/* Current / draggable marker */}
+                <Marker
+                  longitude={currentLng}
+                  latitude={currentLat}
+                  anchor="center"
+                  draggable={canDrag}
+                  onDragEnd={(e) => handleUnitDragEnd(unit, { lat: e.lngLat.lat, lng: e.lngLat.lng })}
+                >
+                  <div style={{ cursor: canDrag ? "grab" : "default" }}>
+                    <UnitIcon unit={unit} />
+                  </div>
+                </Marker>
+
+                {/* Green dashed arrow */}
+                {move && <MovementArrow move={move} />}
+              </Fragment>
+            );
+          })}
         </Map>
 
         {/* Draggable crosshair — Commander only */}
@@ -337,6 +493,53 @@ export default function MapPage() {
             </svg>
           </div>
         )}
+
+        {/* Floating confirm dialog — appears after unit drag */}
+        {pendingMove && (
+          <div className="absolute top-6 right-6 z-50 bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 w-[380px] shadow-[0px_4px_24px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-2 mb-4">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 10h14M10 3l7 7-7 7" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-white text-[16px] font-semibold font-['Inter']">
+                Move {pendingMove.unitName}
+              </span>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">From</label>
+              <div className="flex items-center justify-between bg-[#161D20] border border-[#232E33] rounded-[4px] px-3 py-3">
+                <span className="text-white text-[14px] font-normal font-['Inter']">
+                  {pendingMove.fromLat.toFixed(6)},&nbsp;{pendingMove.fromLng.toFixed(6)}
+                </span>
+                <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">To</label>
+              <div className="flex items-center justify-between bg-[#161D20] border border-[#232E33] rounded-[4px] px-3 py-3">
+                <span className="text-white text-[14px] font-normal font-['Inter']">
+                  {pendingMove.toLat.toFixed(6)},&nbsp;{pendingMove.toLng.toFixed(6)}
+                </span>
+                <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setPendingMove(null)}>Cancel</Button>
+              <Button variant="primary"   size="sm" onClick={handleConfirmMove}>Confirm</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <PlanningPanel
@@ -355,6 +558,13 @@ export default function MapPage() {
         onCardHover={setHoveredCardId}
         onCardHoverEnd={() => setHoveredCardId(null)}
         onCardClick={handleObjectiveClick}
+        isAddingScenario={isAddingScenario}
+        scenarioMode={scenarioMode}
+        unitMovesCount={unitMoves.length}
+        onAddScenario={handleAddScenario}
+        onBackFromScenario={handleBackFromScenario}
+        onScenarioModeChange={setScenarioMode}
+        onCreateScenario={handleCreateScenario}
       />
     </div>
   );
