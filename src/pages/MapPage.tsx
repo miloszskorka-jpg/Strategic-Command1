@@ -462,24 +462,22 @@ export default function MapPage() {
             onMarkerClick={handleObjectiveClick}
           />
 
-          {/* Unit hierarchy lines — always visible in Add Scenario mode */}
-          {isAddingScenario && (
-            <Source id="unit-connections" type="geojson" data={generateUnitConnections(currentUnits)}>
-              <Layer
-                id="unit-connections-layer"
-                type="line"
-                paint={{
-                  "line-color":     "#FFFFFF",
-                  "line-width":     1.5,
-                  "line-opacity":   0.6,
-                  "line-dasharray": [4, 3],
-                }}
-              />
-            </Source>
-          )}
+          {/* Unit hierarchy lines — always visible */}
+          <Source id="unit-connections" type="geojson" data={generateUnitConnections(currentUnits)}>
+            <Layer
+              id="unit-connections-layer"
+              type="line"
+              paint={{
+                "line-color":     "#FFFFFF",
+                "line-width":     1.5,
+                "line-opacity":   0.5,
+                "line-dasharray": [4, 3],
+              }}
+            />
+          </Source>
 
           {/* Movement lines — green, shown after confirm */}
-          {isAddingScenario && unitMoves.length > 0 && (
+          {unitMoves.length > 0 && (
             <Source id="movement-lines" type="geojson" data={generateMovementLines(unitMoves)}>
               <Layer
                 id="movement-lines-layer"
@@ -493,12 +491,12 @@ export default function MapPage() {
             </Source>
           )}
 
-          {/* Unit markers */}
-          {isAddingScenario && currentUnits.map((unit) => {
+          {/* Unit markers — always visible */}
+          {currentUnits.map((unit) => {
             const originalUnit = MOCK_UNITS.find((u) => u.id === unit.id)!;
             const move         = unitMoves.find((m) => m.unitId === unit.id);
             const isSquad      = unit.unitType.startsWith("Squad");
-            const canDrag      = scenarioMode === "move_units" && isSquad && !unit.disabled;
+            const canDrag      = isAddingScenario && scenarioMode === "move_units" && isSquad && !unit.disabled;
             const isHovered    = hoveredUnitId  === unit.id;
             const isSelected   = selectedUnitId === unit.id;
 
@@ -507,8 +505,8 @@ export default function MapPage() {
                 {/* Ghost at original position when unit has been moved */}
                 {move && (
                   <Marker longitude={originalUnit.lng} latitude={originalUnit.lat} anchor="center">
-                    <div style={{ opacity: 0.4, pointerEvents: "none" }}>
-                      <UnitMarkerSVG unitType={unit.unitType} />
+                    <div style={{ opacity: 0.5, pointerEvents: "none" }}>
+                      <UnitMarkerSVG unitType={unit.unitType} disabled />
                     </div>
                   </Marker>
                 )}
