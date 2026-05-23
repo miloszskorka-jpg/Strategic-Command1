@@ -26,7 +26,7 @@ const variantStyles: Record<ButtonVariant, {
 }> = {
   primary: {
     filled:  "bg-[#0C9D61] text-white hover:bg-[#097A4B] focus:ring-[#76FFAE]/40 active:bg-[#065736]",
-    ghost:   "bg-transparent text-[#76FFAE] hover:bg-[#76FFAE]/10 focus:ring-[#76FFAE]/40",
+    ghost:   "bg-transparent border border-[#0C9D61] text-[#76FFAE] hover:bg-[#76FFAE]/10 focus:ring-[#76FFAE]/40",
     outline: "bg-transparent border border-[#0C9D61] text-[#76FFAE] hover:bg-[#0C9D61]/10 focus:ring-[#76FFAE]/40",
   },
   secondary: {

@@ -472,12 +472,9 @@ function PlanCard({ plan, onAddScenario }: { plan: Plan; onAddScenario: () => vo
         <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
       </div>
 
-      <button
-        onClick={onAddScenario}
-        className="w-full h-[40px] flex items-center justify-center bg-[#0C9D61] hover:bg-[#097A4B] rounded-[4px] mt-1 text-white text-[16px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer"
-      >
+      <Button variant="primary" size="md" ghost className="w-full mt-2" onClick={onAddScenario}>
         Add Scenario
-      </button>
+      </Button>
     </div>
   );
 }
@@ -610,6 +607,10 @@ export function PlanningPanel({
     setSubmittedPlan(null);
   }
 
+  function handleCreateAnotherPlan() {
+    setSubmittedPlan(null);
+  }
+
   function handleSubmitPlan(name: string, description: string) {
     const obj = planForObj!;
     const newPlan: Plan = {
@@ -659,7 +660,25 @@ export function PlanningPanel({
               <div className="border-t border-[#161D20] mb-6" />
 
               {submittedPlan ? (
-                <PlanCard plan={submittedPlan} onAddScenario={() => {}} />
+                <>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full mb-6"
+                    onClick={handleCreateAnotherPlan}
+                  >
+                    Create Another Plan
+                  </Button>
+                  <div className="flex flex-col gap-4">
+                    {plans
+                      .filter((p) => p.objectiveId === planForObj.id)
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((plan) => (
+                        <PlanCard key={plan.id} plan={plan} onAddScenario={() => {}} />
+                      ))
+                    }
+                  </div>
+                </>
               ) : (
                 <CreatePlanForm onCancel={handleBack} onSubmit={handleSubmitPlan} />
               )}
