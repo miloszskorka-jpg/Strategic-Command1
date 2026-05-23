@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment, useMemo } from "react";
 import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
@@ -12,11 +12,13 @@ import { UnitMarker, type UnitType } from "../components/map/UnitMarker";
 // ─── Scenario types & data ────────────────────────────────────────────────────
 
 interface MapUnit {
-  id:       string;
-  name:     string;
-  lat:      number;
-  lng:      number;
-  unitType: UnitType;
+  id:        string;
+  name:      string;
+  lat:       number;
+  lng:       number;
+  unitType:  UnitType;
+  parentId?: string | null;
+  disabled?: boolean;
 }
 
 interface UnitMove {
@@ -29,42 +31,67 @@ interface UnitMove {
 }
 
 const MOCK_UNITS: MapUnit[] = [
-  { id: "alfa",    name: "ALFA_Squad",     lat: 43.62,  lng: 1.20,  unitType: "Squad (infantry)"    },
-  { id: "bravo",   name: "BRAVO_Squad",    lat: 43.61,  lng: 1.18,  unitType: "Squad (infantry)"    },
-  { id: "charlie", name: "CHARLIE_Plt",    lat: 43.63,  lng: 1.22,  unitType: "Platoon (infantry)"  },
-  { id: "delta",   name: "DELTA_Co",       lat: 43.60,  lng: 1.16,  unitType: "Company (infantry)"  },
-  { id: "echo",    name: "ECHO_Bat",       lat: 43.605, lng: 1.21,  unitType: "Battalion"           },
-  { id: "foxtrot", name: "FOXTROT_ArtPlt", lat: 43.615, lng: 1.19,  unitType: "Platoon (artillery)" },
+  { id: "plt-art-1",  name: "PLT_ART_1",    lat: 43.660, lng: 1.185, unitType: "Platoon (artillery)", parentId: null         },
+  { id: "plt-art-2",  name: "PLT_ART_2",    lat: 43.655, lng: 1.165, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
+  { id: "plt-art-3",  name: "PLT_ART_3",    lat: 43.655, lng: 1.200, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
+  { id: "plt-art-4",  name: "PLT_ART_4",    lat: 43.650, lng: 1.215, unitType: "Platoon (artillery)", parentId: "plt-art-1", disabled: true },
+  { id: "sq-art-1",   name: "SQ_ART_1",     lat: 43.635, lng: 1.140, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-2",   name: "SQ_ART_2",     lat: 43.630, lng: 1.155, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-3",   name: "SQ_ART_3",     lat: 43.632, lng: 1.170, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-4",   name: "SQ_ART_4",     lat: 43.634, lng: 1.185, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-5",   name: "SQ_ART_5",     lat: 43.633, lng: 1.198, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-6",   name: "SQ_ART_6",     lat: 43.636, lng: 1.210, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "sq-art-7",   name: "SQ_ART_7",     lat: 43.637, lng: 1.222, unitType: "Squad (artillery)",   parentId: "plt-art-1" },
+  { id: "co-inf-1",   name: "CO_INF_1",     lat: 43.620, lng: 1.240, unitType: "Company (infantry)",  parentId: null         },
+  { id: "plt-inf-1",  name: "PLT_INF_1",    lat: 43.608, lng: 1.198, unitType: "Platoon (infantry)",  parentId: "co-inf-1"  },
+  { id: "plt-inf-2",  name: "PLT_INF_2",    lat: 43.615, lng: 1.245, unitType: "Platoon (infantry)",  parentId: "co-inf-1"  },
+  { id: "sq-inf-1",   name: "SQ_INF_1",     lat: 43.600, lng: 1.163, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "sq-inf-2",   name: "SQ_INF_2",     lat: 43.593, lng: 1.172, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "sq-inf-3",   name: "SQ_INF_3",     lat: 43.587, lng: 1.183, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "sq-inf-4",   name: "SQ_INF_4",     lat: 43.583, lng: 1.196, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "sq-inf-5",   name: "SQ_INF_5",     lat: 43.582, lng: 1.212, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "sq-inf-6",   name: "SQ_INF_6",     lat: 43.583, lng: 1.228, unitType: "Squad (infantry)",    parentId: "plt-inf-1" },
+  { id: "plt-art-d1", name: "PLT_ART_D1",   lat: 43.575, lng: 1.255, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
+  { id: "plt-art-d2", name: "PLT_ART_D2",   lat: 43.565, lng: 1.245, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
+  { id: "plt-art-d3", name: "PLT_ART_D3",   lat: 43.567, lng: 1.265, unitType: "Platoon (artillery)", parentId: null,        disabled: true },
+  { id: "sq-inf-r1",  name: "SQ_INF_R1",    lat: 43.597, lng: 1.255, unitType: "Squad (infantry)",    parentId: "plt-inf-2" },
+  { id: "sq-inf-r2",  name: "SQ_INF_R2",    lat: 43.590, lng: 1.265, unitType: "Squad (infantry)",    parentId: "plt-inf-2" },
 ];
 
-// ─── Movement arrow ───────────────────────────────────────────────────────────
+// ─── GeoJSON helpers ──────────────────────────────────────────────────────────
 
-function MovementArrow({ move }: { move: UnitMove }) {
-  const geojson = {
-    type: "Feature" as const,
-    geometry: {
-      type: "LineString" as const,
-      coordinates: [
-        [move.fromLng, move.fromLat],
-        [move.toLng,   move.toLat],
-      ],
-    },
-    properties: {},
+function generateUnitConnections(units: MapUnit[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: units
+      .filter((u) => u.parentId)
+      .flatMap((unit) => {
+        const parent = units.find((p) => p.id === unit.parentId);
+        if (!parent) return [];
+        return [{
+          type: "Feature" as const,
+          geometry: {
+            type: "LineString" as const,
+            coordinates: [[parent.lng, parent.lat], [unit.lng, unit.lat]],
+          },
+          properties: { id: unit.id },
+        }];
+      }),
   };
+}
 
-  return (
-    <Source id={`move-${move.unitId}`} type="geojson" data={geojson}>
-      <Layer
-        id={`move-line-${move.unitId}`}
-        type="line"
-        paint={{
-          "line-color": "#76FFAE",
-          "line-width": 2,
-          "line-dasharray": [4, 2],
-        }}
-      />
-    </Source>
-  );
+function generateMovementLines(moves: UnitMove[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: moves.map((m) => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "LineString" as const,
+        coordinates: [[m.fromLng, m.fromLat], [m.toLng, m.toLat]],
+      },
+      properties: { id: m.unitId },
+    })),
+  };
 }
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
@@ -240,8 +267,9 @@ export default function MapPage() {
   const [objectives, setObjectives] = useState<Objective[]>(INITIAL_OBJECTIVES);
   const [plans,      setPlans]      = useState<Plan[]>([]);
 
-  // Unit hover state
-  const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
+  // Unit interaction state
+  const [hoveredUnitId,  setHoveredUnitId]  = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   // Scenario state
   const [isAddingScenario, setIsAddingScenario] = useState(false);
@@ -360,14 +388,17 @@ export default function MapPage() {
     setPendingMove(null);
   }
 
-  function handleBackFromScenario() {
-    setIsAddingScenario(false);
-    setScenarioForPlan(null);
-    setUnitMoves([]);
-    setPendingMove(null);
-  }
+  // Units at their current positions (incorporating confirmed moves)
+  const currentUnits = useMemo(() =>
+    MOCK_UNITS.map((unit) => {
+      const move = unitMoves.find((m) => m.unitId === unit.id);
+      return move ? { ...unit, lat: move.toLat, lng: move.toLng } : unit;
+    }),
+  [unitMoves]);
 
   function handleUnitDragEnd(unit: MapUnit, lngLat: { lat: number; lng: number }) {
+    if (!unit.unitType.startsWith("Squad")) return;
+    if (unit.disabled) return;
     const existing = unitMoves.find((m) => m.unitId === unit.id);
     setPendingMove({
       unitId:   unit.id,
@@ -390,6 +421,15 @@ export default function MapPage() {
     setScenarioForPlan(null);
     setUnitMoves([]);
     setPendingMove(null);
+    setSelectedUnitId(null);
+  }
+
+  function handleBackFromScenario() {
+    setIsAddingScenario(false);
+    setScenarioForPlan(null);
+    setUnitMoves([]);
+    setPendingMove(null);
+    setSelectedUnitId(null);
   }
 
   // suppress unused warning — scenarioForPlan will be used when scenario submission is wired
@@ -428,19 +468,51 @@ export default function MapPage() {
             onMarkerClick={handleObjectiveClick}
           />
 
-          {/* Unit markers — visible only in Add Scenario mode */}
-          {isAddingScenario && MOCK_UNITS.map((unit) => {
-            const move       = unitMoves.find((m) => m.unitId === unit.id);
-            const currentLat = move ? move.toLat : unit.lat;
-            const currentLng = move ? move.toLng : unit.lng;
-            const canDrag    = scenarioMode === "move_units";
-            const isHovered  = hoveredUnitId === unit.id;
+          {/* Unit hierarchy lines — always visible in Add Scenario mode */}
+          {isAddingScenario && (
+            <Source id="unit-connections" type="geojson" data={generateUnitConnections(currentUnits)}>
+              <Layer
+                id="unit-connections-layer"
+                type="line"
+                paint={{
+                  "line-color":     "#FFFFFF",
+                  "line-width":     1.5,
+                  "line-opacity":   0.6,
+                  "line-dasharray": [4, 3],
+                }}
+              />
+            </Source>
+          )}
+
+          {/* Movement lines — green, shown after confirm */}
+          {isAddingScenario && unitMoves.length > 0 && (
+            <Source id="movement-lines" type="geojson" data={generateMovementLines(unitMoves)}>
+              <Layer
+                id="movement-lines-layer"
+                type="line"
+                paint={{
+                  "line-color":     "#76FFAE",
+                  "line-width":     2,
+                  "line-dasharray": [4, 2],
+                }}
+              />
+            </Source>
+          )}
+
+          {/* Unit markers */}
+          {isAddingScenario && currentUnits.map((unit) => {
+            const originalUnit = MOCK_UNITS.find((u) => u.id === unit.id)!;
+            const move         = unitMoves.find((m) => m.unitId === unit.id);
+            const isSquad      = unit.unitType.startsWith("Squad");
+            const canDrag      = scenarioMode === "move_units" && isSquad && !unit.disabled;
+            const isHovered    = hoveredUnitId  === unit.id;
+            const isSelected   = selectedUnitId === unit.id;
 
             return (
               <Fragment key={unit.id}>
                 {/* Ghost at original position when unit has been moved */}
                 {move && (
-                  <Marker longitude={unit.lng} latitude={unit.lat} anchor="center">
+                  <Marker longitude={originalUnit.lng} latitude={originalUnit.lat} anchor="center">
                     <div style={{ opacity: 0.4, pointerEvents: "none" }}>
                       <UnitMarker unitType={unit.unitType} state="Default" />
                     </div>
@@ -449,26 +521,25 @@ export default function MapPage() {
 
                 {/* Current / draggable marker */}
                 <Marker
-                  longitude={currentLng}
-                  latitude={currentLat}
+                  longitude={unit.lng}
+                  latitude={unit.lat}
                   anchor="center"
                   draggable={canDrag}
-                  onDragEnd={(e) => handleUnitDragEnd(unit, { lat: e.lngLat.lat, lng: e.lngLat.lng })}
+                  onDragEnd={(e) => handleUnitDragEnd(originalUnit, { lat: e.lngLat.lat, lng: e.lngLat.lng })}
                 >
                   <div
                     onMouseEnter={() => setHoveredUnitId(unit.id)}
                     onMouseLeave={() => setHoveredUnitId(null)}
+                    onClick={() => setSelectedUnitId((prev) => prev === unit.id ? null : unit.id)}
                     style={{ cursor: canDrag ? "grab" : "default" }}
                   >
                     <UnitMarker
                       unitType={unit.unitType}
-                      state={isHovered ? "Hover" : "Default"}
+                      state={unit.disabled ? "Disabled" : isHovered ? "Hover" : "Default"}
+                      selected={isSelected}
                     />
                   </div>
                 </Marker>
-
-                {/* Green dashed arrow */}
-                {move && <MovementArrow move={move} />}
               </Fragment>
             );
           })}
