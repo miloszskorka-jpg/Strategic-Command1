@@ -7,15 +7,16 @@ import { PlanningPanel, type Objective, type Plan, type ScenarioMode } from "../
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
 import { Button } from "../components/Button";
+import { UnitMarker, type UnitType } from "../components/map/UnitMarker";
 
 // ─── Scenario types & data ────────────────────────────────────────────────────
 
 interface MapUnit {
-  id:   string;
-  name: string;
-  lat:  number;
-  lng:  number;
-  type: "squad" | "platoon" | "company";
+  id:       string;
+  name:     string;
+  lat:      number;
+  lng:      number;
+  unitType: UnitType;
 }
 
 interface UnitMove {
@@ -28,21 +29,13 @@ interface UnitMove {
 }
 
 const MOCK_UNITS: MapUnit[] = [
-  { id: "alfa",    name: "ALFA_Squad",    lat: 43.62, lng: 1.20, type: "squad" },
-  { id: "bravo",   name: "BRAVO_Squad",   lat: 43.61, lng: 1.18, type: "squad" },
-  { id: "charlie", name: "CHARLIE_Squad", lat: 43.63, lng: 1.22, type: "squad" },
-  { id: "delta",   name: "DELTA_Squad",   lat: 43.60, lng: 1.16, type: "squad" },
+  { id: "alfa",    name: "ALFA_Squad",     lat: 43.62,  lng: 1.20,  unitType: "Squad (infantry)"    },
+  { id: "bravo",   name: "BRAVO_Squad",    lat: 43.61,  lng: 1.18,  unitType: "Squad (infantry)"    },
+  { id: "charlie", name: "CHARLIE_Plt",    lat: 43.63,  lng: 1.22,  unitType: "Platoon (infantry)"  },
+  { id: "delta",   name: "DELTA_Co",       lat: 43.60,  lng: 1.16,  unitType: "Company (infantry)"  },
+  { id: "echo",    name: "ECHO_Bat",       lat: 43.605, lng: 1.21,  unitType: "Battalion"           },
+  { id: "foxtrot", name: "FOXTROT_ArtPlt", lat: 43.615, lng: 1.19,  unitType: "Platoon (artillery)" },
 ];
-
-// ─── Unit icon ────────────────────────────────────────────────────────────────
-
-function UnitIcon({ unit }: { unit: MapUnit }) {
-  return (
-    <div className="size-[32px] bg-[#2D57B0] border-2 border-[#4BA1FF] rounded-[4px] flex items-center justify-center shadow-[0px_2px_8px_rgba(0,0,0,0.5)]">
-      <img src="/icons/map/groups.svg" alt={unit.name} className="size-[18px]" draggable={false} />
-    </div>
-  );
-}
 
 // ─── Movement arrow ───────────────────────────────────────────────────────────
 
@@ -247,6 +240,9 @@ export default function MapPage() {
   const [objectives, setObjectives] = useState<Objective[]>(INITIAL_OBJECTIVES);
   const [plans,      setPlans]      = useState<Plan[]>([]);
 
+  // Unit hover state
+  const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
+
   // Scenario state
   const [isAddingScenario, setIsAddingScenario] = useState(false);
   const [scenarioForPlan,  setScenarioForPlan]  = useState<Plan | null>(null);
@@ -438,6 +434,7 @@ export default function MapPage() {
             const currentLat = move ? move.toLat : unit.lat;
             const currentLng = move ? move.toLng : unit.lng;
             const canDrag    = scenarioMode === "move_units";
+            const isHovered  = hoveredUnitId === unit.id;
 
             return (
               <Fragment key={unit.id}>
@@ -445,7 +442,7 @@ export default function MapPage() {
                 {move && (
                   <Marker longitude={unit.lng} latitude={unit.lat} anchor="center">
                     <div style={{ opacity: 0.4, pointerEvents: "none" }}>
-                      <UnitIcon unit={unit} />
+                      <UnitMarker unitType={unit.unitType} state="Default" />
                     </div>
                   </Marker>
                 )}
@@ -458,8 +455,15 @@ export default function MapPage() {
                   draggable={canDrag}
                   onDragEnd={(e) => handleUnitDragEnd(unit, { lat: e.lngLat.lat, lng: e.lngLat.lng })}
                 >
-                  <div style={{ cursor: canDrag ? "grab" : "default" }}>
-                    <UnitIcon unit={unit} />
+                  <div
+                    onMouseEnter={() => setHoveredUnitId(unit.id)}
+                    onMouseLeave={() => setHoveredUnitId(null)}
+                    style={{ cursor: canDrag ? "grab" : "default" }}
+                  >
+                    <UnitMarker
+                      unitType={unit.unitType}
+                      state={isHovered ? "Hover" : "Default"}
+                    />
                   </div>
                 </Marker>
 
