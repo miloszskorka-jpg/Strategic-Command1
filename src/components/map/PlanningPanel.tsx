@@ -30,16 +30,26 @@ type Tab = "Objectives" | "Plans" | "Scenarios";
 
 export type ScenarioMode = "move_units" | "fire_mission";
 
-export interface ScenarioAction {
-  id:       string;
-  unitId:   string;
-  unitName: string;
-  fromLat:  number;
-  fromLng:  number;
-  toLat:    number;
-  toLng:    number;
-  type:     "move";
-}
+export type ScenarioAction =
+  | {
+      id:       string;
+      type:     "move";
+      unitId:   string;
+      unitName: string;
+      fromLat:  number;
+      fromLng:  number;
+      toLat:    number;
+      toLng:    number;
+    }
+  | {
+      id:          string;
+      type:        "fire_mission";
+      name:        string;
+      targetType:  string;
+      weaponType:  string;
+      batterySheaf: string;
+      fireType:    string;
+    };
 
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
@@ -553,7 +563,7 @@ function CreatePlanForm({
 
 // ─── Action item ─────────────────────────────────────────────────────────────
 
-function ActionItem({ action }: { action: ScenarioAction }) {
+function ActionItem({ action }: { action: Extract<ScenarioAction, { type: "move" }> }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -593,6 +603,70 @@ function ActionItem({ action }: { action: ScenarioAction }) {
               {action.toLat.toFixed(6)},&nbsp;&nbsp;{action.toLng.toFixed(6)}
             </p>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Fire mission action item ─────────────────────────────────────────────────
+
+const FM_LABELS: Record<string, string> = {
+  personnel:        "Personnel",
+  vehicles:         "Vehicles",
+  structures:       "Structures",
+  equipment:        "Equipment / Weapon Type",
+  "120mm_mortar":   "120mm Mortar",
+  howitzer:         "Howitzer",
+  drone:            "Drone",
+  rocket_artillery: "Rocket Artillery",
+  point_target:     "Point Target",
+  linear:           "Linear",
+  circular:         "Circular",
+  parallel:         "Parallel",
+  fire_for_effect:  "Fire for Effect",
+  illumination:     "Illumination",
+  smoke:            "Smoke",
+};
+
+function FireMissionActionItem({ action }: { action: Extract<ScenarioAction, { type: "fire_mission" }> }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const rows = [
+    { label: "Target Type:",   value: FM_LABELS[action.targetType]   ?? action.targetType },
+    { label: "Weapon Type:",   value: FM_LABELS[action.weaponType]   ?? action.weaponType },
+    { label: "Battery Sheaf:", value: FM_LABELS[action.batterySheaf] ?? action.batterySheaf },
+    { label: "Fire Type:",     value: FM_LABELS[action.fireType]     ?? action.fireType },
+  ];
+
+  return (
+    <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden hover:border-[#232E33] transition-colors duration-150">
+      <div
+        className="flex items-center justify-between px-3 py-3 cursor-pointer"
+        onClick={() => setIsExpanded((v) => !v)}
+      >
+        <div className="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+            <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
+          </svg>
+          <span className="text-white text-[14px] font-semibold font-['Inter']">{action.name}</span>
+        </div>
+        <svg
+          width="16" height="16" viewBox="0 0 16 16" fill="none"
+          className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="px-3 pb-3 flex flex-col gap-2">
+          {rows.map((row) => (
+            <div key={row.label}>
+              <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-[2px]">{row.label}</p>
+              <p className="text-white text-[12px] font-normal font-['Inter']">{row.value}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -659,11 +733,27 @@ function AddScenarioPanel({
         </div>
       )}
 
+      {scenarioMode === "fire_mission" && (
+        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
+          <div className="size-[24px] rounded-full shrink-0 mt-[1px] bg-[#232E33] border border-[#465C66] flex items-center justify-center">
+            <span className="text-[#9A999A] text-[12px] font-bold">?</span>
+          </div>
+          <div>
+            <p className="text-white text-[13px] font-semibold font-['Inter'] mb-1">Fire Mission Mode</p>
+            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter']">
+              To begin configuring a fire mission, place the crosshair over the target on the map.
+            </p>
+          </div>
+        </div>
+      )}
+
       {scenarioActions.length > 0 && (
         <div className="mt-4 flex flex-col gap-2">
-          {scenarioActions.map((action) => (
-            <ActionItem key={action.id} action={action} />
-          ))}
+          {scenarioActions.map((action) =>
+            action.type === "move"
+              ? <ActionItem key={action.id} action={action} />
+              : <FireMissionActionItem key={action.id} action={action} />
+          )}
         </div>
       )}
 

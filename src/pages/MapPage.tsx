@@ -30,6 +30,22 @@ interface UnitMove {
   toLng:    number;
 }
 
+interface PendingFireMission {
+  lat: number;
+  lng: number;
+}
+
+interface ConfirmedFireMission {
+  id:          string;
+  lat:         number;
+  lng:         number;
+  name:        string;
+  targetType:  string;
+  weaponType:  string;
+  batterySheaf: string;
+  fireType:    string;
+}
+
 const MOCK_UNITS: MapUnit[] = [
   { id: "bat-1",      name: "BAT_1",      lat: 47.5680, lng: 34.3960, unitType: "Battalion",           parentId: null                       },
   { id: "co-inf-1",   name: "CO_INF_1",   lat: 47.5820, lng: 34.3700, unitType: "Company (infantry)",  parentId: "bat-1"                    },
@@ -86,6 +102,83 @@ function generateMovementLines(moves: UnitMove[]) {
       properties: { id: m.unitId },
     })),
   };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function toRoman(n: number): string {
+  const map: [number, string][] = [[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]];
+  let result = "";
+  for (const [val, sym] of map) {
+    while (n >= val) { result += sym; n -= val; }
+  }
+  return result;
+}
+
+// ─── Dropdown ─────────────────────────────────────────────────────────────────
+
+interface DropdownOption { value: string; label: string; }
+
+function Dropdown({
+  placeholder,
+  options,
+  value,
+  onChange,
+  status = "default",
+}: {
+  placeholder: string;
+  options:     DropdownOption[];
+  value:       string;
+  onChange:    (v: string) => void;
+  status?:     "default" | "success";
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel   = options.find((o) => o.value === value)?.label;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between bg-[#0D1112] border border-[#232E33] rounded-[4px] px-3 py-3 gap-2 hover:border-[#465C66] transition-colors duration-150 cursor-pointer"
+      >
+        <span className={`text-[14px] font-normal font-['Inter'] flex-1 text-left ${selectedLabel ? "text-white" : "text-[#9A999A]"}`}>
+          {selectedLabel ?? placeholder}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {status === "success" && value && (
+            <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}>
+            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-[#0D1112] border border-[#232E33] rounded-[4px] overflow-hidden shadow-lg">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full text-left px-3 py-2.5 text-[14px] font-normal font-['Inter'] transition-colors duration-150 cursor-pointer ${
+                opt.value === value
+                  ? "text-white bg-[#161D20]"
+                  : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
@@ -275,6 +368,13 @@ export default function MapPage() {
   const [isToInputValid,     setIsToInputValid]     = useState(false);
   const [scenarioActions,    setScenarioActions]    = useState<ScenarioAction[]>([]);
 
+  // Fire mission state
+  const [fireMissionCrosshairPos,  setFireMissionCrosshairPos]  = useState<{x:number;y:number}|null>(null);
+  const [isFireMissionDragging,    setIsFireMissionDragging]    = useState(false);
+  const [pendingFireMission,       setPendingFireMission]       = useState<PendingFireMission|null>(null);
+  const [fireMissionForm,          setFireMissionForm]          = useState({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+  const [confirmedFireMissions,    setConfirmedFireMissions]    = useState<ConfirmedFireMission[]>([]);
+
   // Hover state: marker hover highlights card; card hover pulses marker
   const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
   const [hoveredCardId,       setHoveredCardId]       = useState<string | null>(null);
@@ -386,6 +486,10 @@ export default function MapPage() {
     setPendingMoveToInput("");
     setIsToInputValid(false);
     setScenarioActions([]);
+    setFireMissionCrosshairPos(null);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    setConfirmedFireMissions([]);
   }
 
   // Init "To" input whenever a new pending move is set
@@ -449,7 +553,7 @@ export default function MapPage() {
       type:     "move",
     };
     setScenarioActions((prev) => [
-      ...prev.filter((a) => a.unitId !== pendingMove.unitId),
+      ...prev.filter((a) => a.type !== "move" || a.unitId !== pendingMove.unitId),
       newAction,
     ]);
 
@@ -473,6 +577,10 @@ export default function MapPage() {
     setIsToInputValid(false);
     setScenarioActions([]);
     setSelectedUnitId(null);
+    setFireMissionCrosshairPos(null);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    setConfirmedFireMissions([]);
   }
 
   function handleBackFromScenario() {
@@ -484,6 +592,131 @@ export default function MapPage() {
     setIsToInputValid(false);
     setScenarioActions([]);
     setSelectedUnitId(null);
+    setFireMissionCrosshairPos(null);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    setConfirmedFireMissions([]);
+  }
+
+  function handleScenarioModeChange(mode: ScenarioMode) {
+    setScenarioMode(mode);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    setFireMissionCrosshairPos(null);
+  }
+
+  // Init fire mission crosshair at map center when entering fire_mission mode
+  useEffect(() => {
+    if (isAddingScenario && scenarioMode === "fire_mission" && mapContainerRef.current) {
+      const el = mapContainerRef.current;
+      setFireMissionCrosshairPos({ x: el.offsetWidth / 2, y: el.offsetHeight / 2 });
+    }
+  }, [isAddingScenario, scenarioMode]);
+
+  // Arrow keys move fire mission crosshair
+  useEffect(() => {
+    if (!isAddingScenario || scenarioMode !== "fire_mission") return;
+    const STEP = 20;
+    function onKey(e: KeyboardEvent) {
+      if (!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) return;
+      e.preventDefault();
+      setFireMissionCrosshairPos((prev) => {
+        if (!prev) return prev;
+        const el = mapContainerRef.current;
+        const w  = el ? el.offsetWidth  : Infinity;
+        const h  = el ? el.offsetHeight : Infinity;
+        let { x, y } = prev;
+        if (e.key === "ArrowLeft")  x = Math.max(0, x - STEP);
+        if (e.key === "ArrowRight") x = Math.min(w, x + STEP);
+        if (e.key === "ArrowUp")    y = Math.max(0, y - STEP);
+        if (e.key === "ArrowDown")  y = Math.min(h, y + STEP);
+        return { x, y };
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isAddingScenario, scenarioMode]);
+
+  function handleFireMissionCrosshairMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    e.nativeEvent.stopImmediatePropagation();
+    setIsFireMissionDragging(true);
+
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const startX      = fireMissionCrosshairPos?.x ?? 0;
+    const startY      = fireMissionCrosshairPos?.y ?? 0;
+    let lastPos       = { x: startX, y: startY };
+
+    function onMove(ev: MouseEvent) {
+      const el = mapContainerRef.current;
+      const w  = el ? el.offsetWidth  : Infinity;
+      const h  = el ? el.offsetHeight : Infinity;
+      const newX = Math.max(0, Math.min(startX + ev.clientX - startMouseX, w));
+      const newY = Math.max(0, Math.min(startY + ev.clientY - startMouseY, h));
+      lastPos = { x: newX, y: newY };
+      setFireMissionCrosshairPos(lastPos);
+    }
+
+    function onUp() {
+      setIsFireMissionDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      triggerFireMissionDrop(lastPos);
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  function triggerFireMissionDrop(pos: {x:number; y:number}) {
+    const map = mapRef.current;
+    if (!map) return;
+    const lngLat = map.unproject([pos.x, pos.y]);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    setPendingFireMission({ lat: lngLat.lat, lng: lngLat.lng });
+  }
+
+  function handleConfirmFireMission() {
+    if (!pendingFireMission) return;
+    const missionCount = confirmedFireMissions.length + 1;
+    const name = `Fire Mission ${toRoman(missionCount)}`;
+    const newMission: ConfirmedFireMission = {
+      id:          Date.now().toString(),
+      lat:         pendingFireMission.lat,
+      lng:         pendingFireMission.lng,
+      name,
+      targetType:  fireMissionForm.targetType,
+      weaponType:  fireMissionForm.weaponType,
+      batterySheaf: fireMissionForm.batterySheaf,
+      fireType:    fireMissionForm.fireType,
+    };
+    setConfirmedFireMissions((prev) => [...prev, newMission]);
+    setScenarioActions((prev) => [...prev, {
+      id:          newMission.id,
+      type:        "fire_mission" as const,
+      name,
+      targetType:  fireMissionForm.targetType,
+      weaponType:  fireMissionForm.weaponType,
+      batterySheaf: fireMissionForm.batterySheaf,
+      fireType:    fireMissionForm.fireType,
+    }]);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    // Reset crosshair to center for next fire mission
+    if (mapContainerRef.current) {
+      const el = mapContainerRef.current;
+      setFireMissionCrosshairPos({ x: el.offsetWidth / 2, y: el.offsetHeight / 2 });
+    }
+  }
+
+  function handleCancelFireMission() {
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
+    if (mapContainerRef.current) {
+      const el = mapContainerRef.current;
+      setFireMissionCrosshairPos({ x: el.offsetWidth / 2, y: el.offsetHeight / 2 });
+    }
   }
 
   // suppress unused warning — scenarioForPlan will be used when scenario submission is wired
@@ -550,6 +783,20 @@ export default function MapPage() {
               />
             </Source>
           )}
+
+          {/* Confirmed fire mission markers */}
+          {confirmedFireMissions.map((fm) => (
+            <Marker key={fm.id} longitude={fm.lng} latitude={fm.lat} anchor="center">
+              <div style={{ pointerEvents: "none" }}>
+                <svg width="80" height="120" viewBox="0 0 80 120" fill="none">
+                  <circle cx="40" cy="20" r="18" fill="rgba(236,45,48,0.3)" stroke="#EC2D30" strokeWidth="2" strokeDasharray="4 2" />
+                  <circle cx="40" cy="60" r="22" fill="rgba(236,45,48,0.2)" stroke="#EC2D30" strokeWidth="2" />
+                  <circle cx="40" cy="60" r="5"  fill="#EC2D30" />
+                  <circle cx="40" cy="100" r="18" fill="rgba(236,45,48,0.3)" stroke="#EC2D30" strokeWidth="2" strokeDasharray="4 2" />
+                </svg>
+              </div>
+            </Marker>
+          ))}
 
           {/* Unit markers — always visible */}
           {currentUnits.map((unit) => {
@@ -619,6 +866,117 @@ export default function MapPage() {
               <line x1="4"  y1="24" x2="44" y2="24" stroke="#EC2D30" strokeWidth="2" />
               <circle cx="24" cy="24" r="3" fill="#EC2D30" />
             </svg>
+          </div>
+        )}
+
+        {/* Fire mission crosshair */}
+        {isAddingScenario && scenarioMode === "fire_mission" && fireMissionCrosshairPos && !pendingFireMission && (
+          <div
+            style={{
+              position:      "absolute",
+              left:          fireMissionCrosshairPos.x,
+              top:           fireMissionCrosshairPos.y,
+              transform:     "translate(-50%, -50%)",
+              zIndex:        20,
+              cursor:        isFireMissionDragging ? "grabbing" : "grab",
+              pointerEvents: "all",
+              userSelect:    "none",
+            }}
+            onMouseDown={handleFireMissionCrosshairMouseDown}
+          >
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="20" stroke="#EC2D30" strokeWidth="2" />
+              <line x1="24" y1="4"  x2="24" y2="44" stroke="#EC2D30" strokeWidth="2" />
+              <line x1="4"  y1="24" x2="44" y2="24" stroke="#EC2D30" strokeWidth="2" />
+              <circle cx="24" cy="24" r="3" fill="#EC2D30" />
+            </svg>
+          </div>
+        )}
+
+        {/* Fire mission config panel */}
+        {pendingFireMission && (
+          <div className="absolute top-6 right-6 z-50 bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 w-[400px] shadow-[0px_4px_24px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-2 mb-4">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
+              </svg>
+              <span className="text-white text-[16px] font-semibold font-['Inter']">Configure Fire Mission</span>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Target Type</label>
+              <Dropdown
+                placeholder="choose a target"
+                options={[
+                  { value: "personnel",  label: "Personnel" },
+                  { value: "vehicles",   label: "Vehicles" },
+                  { value: "structures", label: "Structures" },
+                  { value: "equipment",  label: "Equipment / Weapon Type" },
+                ]}
+                value={fireMissionForm.targetType}
+                onChange={(v) => setFireMissionForm((p) => ({ ...p, targetType: v }))}
+                status={fireMissionForm.targetType ? "success" : "default"}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Weapon Type</label>
+              <Dropdown
+                placeholder="choose a weapon"
+                options={[
+                  { value: "120mm_mortar",     label: "120mm Mortar" },
+                  { value: "howitzer",         label: "Howitzer" },
+                  { value: "drone",            label: "Drone" },
+                  { value: "rocket_artillery", label: "Rocket Artillery" },
+                ]}
+                value={fireMissionForm.weaponType}
+                onChange={(v) => setFireMissionForm((p) => ({ ...p, weaponType: v }))}
+                status={fireMissionForm.weaponType ? "success" : "default"}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Battery Sheaf</label>
+              <Dropdown
+                placeholder="choose a pattern"
+                options={[
+                  { value: "point_target", label: "Point Target" },
+                  { value: "linear",       label: "Linear" },
+                  { value: "circular",     label: "Circular" },
+                  { value: "parallel",     label: "Parallel" },
+                ]}
+                value={fireMissionForm.batterySheaf}
+                onChange={(v) => setFireMissionForm((p) => ({ ...p, batterySheaf: v }))}
+                status={fireMissionForm.batterySheaf ? "success" : "default"}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Fire Type</label>
+              <Dropdown
+                placeholder="choose a fire type"
+                options={[
+                  { value: "fire_for_effect", label: "Fire for Effect" },
+                  { value: "illumination",    label: "Illumination" },
+                  { value: "smoke",           label: "Smoke" },
+                ]}
+                value={fireMissionForm.fireType}
+                onChange={(v) => setFireMissionForm((p) => ({ ...p, fireType: v }))}
+                status={fireMissionForm.fireType ? "success" : "default"}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={handleCancelFireMission}>Cancel</Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!fireMissionForm.targetType || !fireMissionForm.weaponType || !fireMissionForm.batterySheaf || !fireMissionForm.fireType}
+                onClick={handleConfirmFireMission}
+              >
+                Confirm
+              </Button>
+            </div>
           </div>
         )}
 
@@ -701,7 +1059,7 @@ export default function MapPage() {
         scenarioActions={scenarioActions}
         onAddScenario={handleAddScenario}
         onBackFromScenario={handleBackFromScenario}
-        onScenarioModeChange={setScenarioMode}
+        onScenarioModeChange={handleScenarioModeChange}
         onCreateScenario={handleCreateScenario}
       />
     </div>
