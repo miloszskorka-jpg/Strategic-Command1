@@ -30,6 +30,17 @@ type Tab = "Objectives" | "Plans" | "Scenarios";
 
 export type ScenarioMode = "move_units" | "fire_mission";
 
+export interface ScenarioAction {
+  id:       string;
+  unitId:   string;
+  unitName: string;
+  fromLat:  number;
+  fromLng:  number;
+  toLat:    number;
+  toLng:    number;
+  type:     "move";
+}
+
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<ObjectiveStatus, string> = {
@@ -540,20 +551,68 @@ function CreatePlanForm({
   );
 }
 
+// ─── Action item ─────────────────────────────────────────────────────────────
+
+function ActionItem({ action }: { action: ScenarioAction }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden transition-all duration-150 hover:border-[#232E33]">
+      <div
+        className="flex items-center justify-between px-3 py-3 cursor-pointer"
+        onClick={() => setIsExpanded((v) => !v)}
+      >
+        <div className="flex items-center gap-2">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+            <path d="M1 6h6M4 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M8 6h6M11 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-white text-[14px] font-semibold font-['Inter']">
+            Move {action.unitName}
+          </span>
+        </div>
+        <svg
+          width="16" height="16" viewBox="0 0 16 16" fill="none"
+          className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[160px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="px-3 pb-3 flex flex-col gap-2">
+          <div>
+            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-[2px]">From:</p>
+            <p className="text-white text-[12px] font-normal font-['Inter']">
+              {action.fromLat.toFixed(6)},&nbsp;&nbsp;{action.fromLng.toFixed(6)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-[2px]">To:</p>
+            <p className="text-white text-[12px] font-normal font-['Inter']">
+              {action.toLat.toFixed(6)},&nbsp;&nbsp;{action.toLng.toFixed(6)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Add Scenario panel ───────────────────────────────────────────────────────
 
 function AddScenarioPanel({
   onBack,
   scenarioMode,
   onModeChange,
-  unitMovesCount,
+  scenarioActions,
   onCreate,
 }: {
-  onBack:         () => void;
-  scenarioMode:   ScenarioMode;
-  onModeChange:   (mode: ScenarioMode) => void;
-  unitMovesCount: number;
-  onCreate:       () => void;
+  onBack:           () => void;
+  scenarioMode:     ScenarioMode;
+  onModeChange:     (mode: ScenarioMode) => void;
+  scenarioActions:  ScenarioAction[];
+  onCreate:         () => void;
 }) {
   return (
     <div className="flex flex-col flex-1">
@@ -587,7 +646,7 @@ function AddScenarioPanel({
       </div>
 
       {scenarioMode === "move_units" && (
-        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] mb-6">
+        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
           <div className="size-[24px] rounded-full shrink-0 mt-[1px] bg-[#232E33] border border-[#465C66] flex items-center justify-center">
             <span className="text-[#9A999A] text-[12px] font-bold">?</span>
           </div>
@@ -600,13 +659,21 @@ function AddScenarioPanel({
         </div>
       )}
 
+      {scenarioActions.length > 0 && (
+        <div className="mt-4 flex flex-col gap-2">
+          {scenarioActions.map((action) => (
+            <ActionItem key={action.id} action={action} />
+          ))}
+        </div>
+      )}
+
       <div className="mt-auto pt-4">
         <Button
           variant="primary"
           size="lg"
           className="w-full"
           onClick={onCreate}
-          disabled={unitMovesCount === 0}
+          disabled={scenarioActions.length === 0}
         >
           Create
         </Button>
@@ -637,7 +704,7 @@ export interface PlanningPanelProps {
   onCardClick:          (id: string) => void;
   isAddingScenario:     boolean;
   scenarioMode:         ScenarioMode;
-  unitMovesCount:       number;
+  scenarioActions:      ScenarioAction[];
   onAddScenario:        (plan: Plan) => void;
   onBackFromScenario:   () => void;
   onScenarioModeChange: (mode: ScenarioMode) => void;
@@ -650,7 +717,7 @@ export function PlanningPanel({
   plans, onPlanCreated,
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
-  isAddingScenario, scenarioMode, unitMovesCount,
+  isAddingScenario, scenarioMode, scenarioActions,
   onAddScenario, onBackFromScenario, onScenarioModeChange, onCreateScenario,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
@@ -724,7 +791,7 @@ export function PlanningPanel({
               onBack={onBackFromScenario}
               scenarioMode={scenarioMode}
               onModeChange={onScenarioModeChange}
-              unitMovesCount={unitMovesCount}
+              scenarioActions={scenarioActions}
               onCreate={onCreateScenario}
             />
           ) : isCreating ? (

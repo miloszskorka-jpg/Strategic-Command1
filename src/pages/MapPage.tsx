@@ -3,7 +3,7 @@ import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
-import { PlanningPanel, type Objective, type Plan, type ScenarioMode } from "../components/map/PlanningPanel";
+import { PlanningPanel, type Objective, type Plan, type ScenarioMode, type ScenarioAction } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
 import { Button } from "../components/Button";
@@ -267,10 +267,13 @@ export default function MapPage() {
 
   // Scenario state
   const [isAddingScenario, setIsAddingScenario] = useState(false);
-  const [scenarioForPlan,  setScenarioForPlan]  = useState<Plan | null>(null);
-  const [scenarioMode,     setScenarioMode]     = useState<ScenarioMode>("move_units");
-  const [unitMoves,        setUnitMoves]        = useState<UnitMove[]>([]);
-  const [pendingMove,      setPendingMove]      = useState<UnitMove | null>(null);
+  const [scenarioForPlan,    setScenarioForPlan]    = useState<Plan | null>(null);
+  const [scenarioMode,       setScenarioMode]       = useState<ScenarioMode>("move_units");
+  const [unitMoves,          setUnitMoves]          = useState<UnitMove[]>([]);
+  const [pendingMove,        setPendingMove]        = useState<UnitMove | null>(null);
+  const [pendingMoveToInput, setPendingMoveToInput] = useState("");
+  const [isToInputValid,     setIsToInputValid]     = useState(false);
+  const [scenarioActions,    setScenarioActions]    = useState<ScenarioAction[]>([]);
 
   // Hover state: marker hover highlights card; card hover pulses marker
   const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
@@ -380,6 +383,26 @@ export default function MapPage() {
     setScenarioMode("move_units");
     setUnitMoves([]);
     setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
+    setScenarioActions([]);
+  }
+
+  // Init "To" input whenever a new pending move is set
+  useEffect(() => {
+    if (pendingMove) {
+      const val = `${pendingMove.toLat.toFixed(6)}, ${pendingMove.toLng.toFixed(6)}`;
+      setPendingMoveToInput(val);
+      setIsToInputValid(true);
+    }
+  }, [pendingMove]);
+
+  function handleToInputBlur(value: string) {
+    const parts = value.split(",").map((s) => s.trim());
+    const lat   = parseFloat(parts[0]);
+    const lng   = parseFloat(parts[1]);
+    const valid = !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    setIsToInputValid(valid);
   }
 
   // Units at their current positions (incorporating confirmed moves)
@@ -404,10 +427,41 @@ export default function MapPage() {
     });
   }
 
-  function handleConfirmMove() {
+  function handleConfirmMove(toInput: string) {
     if (!pendingMove) return;
-    setUnitMoves((prev) => [...prev.filter((m) => m.unitId !== pendingMove.unitId), pendingMove]);
+    const parts = toInput.split(",").map((s) => s.trim());
+    const toLat = parseFloat(parts[0]);
+    const toLng = parseFloat(parts[1]);
+
+    setUnitMoves((prev) => [
+      ...prev.filter((m) => m.unitId !== pendingMove.unitId),
+      { ...pendingMove, toLat, toLng },
+    ]);
+
+    const newAction: ScenarioAction = {
+      id:       Date.now().toString(),
+      unitId:   pendingMove.unitId,
+      unitName: pendingMove.unitName,
+      fromLat:  pendingMove.fromLat,
+      fromLng:  pendingMove.fromLng,
+      toLat,
+      toLng,
+      type:     "move",
+    };
+    setScenarioActions((prev) => [
+      ...prev.filter((a) => a.unitId !== pendingMove.unitId),
+      newAction,
+    ]);
+
     setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
+  }
+
+  function handleCancelMove() {
+    setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
   }
 
   function handleCreateScenario() {
@@ -415,6 +469,9 @@ export default function MapPage() {
     setScenarioForPlan(null);
     setUnitMoves([]);
     setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
+    setScenarioActions([]);
     setSelectedUnitId(null);
   }
 
@@ -423,6 +480,9 @@ export default function MapPage() {
     setScenarioForPlan(null);
     setUnitMoves([]);
     setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
+    setScenarioActions([]);
     setSelectedUnitId(null);
   }
 
@@ -566,19 +626,21 @@ export default function MapPage() {
         {pendingMove && (
           <div className="absolute top-6 right-6 z-50 bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 w-[380px] shadow-[0px_4px_24px_rgba(0,0,0,0.6)]">
             <div className="flex items-center gap-2 mb-4">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3 10h14M10 3l7 7-7 7" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
+                <path d="M1 8h14M10 1l7 7-7 7" stroke="#4BA1FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M1 8h8" stroke="#4BA1FF" strokeWidth="2" strokeLinecap="round" />
               </svg>
               <span className="text-white text-[16px] font-semibold font-['Inter']">
                 Move {pendingMove.unitName}
               </span>
             </div>
 
+            {/* From — read only */}
             <div className="mb-3">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">From</label>
-              <div className="flex items-center justify-between bg-[#161D20] border border-[#232E33] rounded-[4px] px-3 py-3">
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">From:</label>
+              <div className="flex items-center justify-between bg-[#0D1112] border border-[#6BC497] rounded-[4px] px-3 py-3">
                 <span className="text-white text-[14px] font-normal font-['Inter']">
-                  {pendingMove.fromLat.toFixed(6)},&nbsp;{pendingMove.fromLng.toFixed(6)}
+                  {pendingMove.fromLat.toFixed(6)}, {pendingMove.fromLng.toFixed(6)}
                 </span>
                 <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -588,23 +650,31 @@ export default function MapPage() {
               </div>
             </div>
 
+            {/* To — editable */}
             <div className="mb-4">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">To</label>
-              <div className="flex items-center justify-between bg-[#161D20] border border-[#232E33] rounded-[4px] px-3 py-3">
-                <span className="text-white text-[14px] font-normal font-['Inter']">
-                  {pendingMove.toLat.toFixed(6)},&nbsp;{pendingMove.toLng.toFixed(6)}
-                </span>
-                <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">To:</label>
+              <div className="flex items-center bg-[#0D1112] border border-[#3A70E2] rounded-[4px] px-3 py-3 gap-2 focus-within:border-[#4BA1FF] transition-colors duration-150">
+                <input
+                  type="text"
+                  value={pendingMoveToInput}
+                  onChange={(e) => setPendingMoveToInput(e.target.value)}
+                  onBlur={(e) => handleToInputBlur(e.target.value)}
+                  placeholder="47.000000, 34.000000"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-white text-[14px] font-normal font-['Inter'] placeholder:text-[#9A999A]"
+                />
+                {isToInputValid && (
+                  <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setPendingMove(null)}>Cancel</Button>
-              <Button variant="primary"   size="sm" onClick={handleConfirmMove}>Confirm</Button>
+              <Button variant="secondary" size="sm" onClick={handleCancelMove}>Cancel</Button>
+              <Button variant="primary" size="sm" disabled={!isToInputValid} onClick={() => handleConfirmMove(pendingMoveToInput)}>Confirm</Button>
             </div>
           </div>
         )}
@@ -628,7 +698,7 @@ export default function MapPage() {
         onCardClick={handleObjectiveClick}
         isAddingScenario={isAddingScenario}
         scenarioMode={scenarioMode}
-        unitMovesCount={unitMoves.length}
+        scenarioActions={scenarioActions}
         onAddScenario={handleAddScenario}
         onBackFromScenario={handleBackFromScenario}
         onScenarioModeChange={setScenarioMode}
