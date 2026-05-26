@@ -181,6 +181,88 @@ function Dropdown({
   );
 }
 
+// ─── Color dropdown ───────────────────────────────────────────────────────────
+
+const PLAN_COLORS = [
+  { value: "green",  hex: "#0C9D61", label: "Green"  },
+  { value: "yellow", hex: "#FFC62B", label: "Yellow" },
+  { value: "red",    hex: "#EC2D30", label: "Red"    },
+  { value: "purple", hex: "#5900D9", label: "Purple" },
+  { value: "blue",   hex: "#3A70E2", label: "Blue"   },
+];
+
+function ColorDropdown({
+  value,
+  onChange,
+  hasError = false,
+}: {
+  value:     string;
+  onChange:  (v: string) => void;
+  hasError?: boolean;
+}) {
+  const [isOpen,  setIsOpen]  = useState(false);
+  const containerRef           = useRef<HTMLDivElement>(null);
+  const selected               = PLAN_COLORS.find((c) => c.value === value);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className={`
+          w-full flex items-center justify-between px-3 py-3
+          bg-[#0D1112] border rounded-[4px] outline-none cursor-pointer
+          transition-colors duration-150
+          ${hasError ? "border-[#F64C4C]" : isOpen ? "border-[#3A70E2]" : "border-[#161D20] hover:border-[#232E33]"}
+        `}
+      >
+        <div className="flex items-center gap-2">
+          {selected ? (
+            <>
+              <div className="size-[16px] rounded-full shrink-0" style={{ backgroundColor: selected.hex }} />
+              <span className="text-white text-[14px] font-normal font-['Inter']">{selected.label}</span>
+            </>
+          ) : (
+            <span className="text-[#9A999A] text-[14px] font-normal font-['Inter']">choose a color</span>
+          )}
+        </div>
+        <svg
+          width="16" height="16" viewBox="0 0 16 16" fill="none"
+          className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 z-50 mt-0 bg-[#0D1112] border border-[#3A70E2] rounded-[4px] py-2 overflow-hidden shadow-[0px_4px_16px_rgba(0,0,0,0.4)]">
+          {PLAN_COLORS.map((color) => (
+            <button
+              key={color.value}
+              type="button"
+              onClick={() => { onChange(color.value); setIsOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-[10px] hover:bg-[#161D20] transition-colors cursor-pointer"
+            >
+              <div className="size-[20px] rounded-full shrink-0" style={{ backgroundColor: color.hex }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 
 function IconHome() {
@@ -375,6 +457,14 @@ export default function MapPage() {
   const [fireMissionForm,          setFireMissionForm]          = useState({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
   const [confirmedFireMissions,    setConfirmedFireMissions]    = useState<ConfirmedFireMission[]>([]);
 
+  // Finalize dialog state
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [finalizeForm, setFinalizeForm] = useState({
+    name: "", color: "", execMode: "standalone" as "standalone" | "dependent", date: "", time: "",
+  });
+  const [finalizeErrors, setFinalizeErrors] = useState({ name: false, color: false, date: false, time: false });
+  const [mapToast, setMapToast] = useState<{ message: string } | null>(null);
+
   // Hover state: marker hover highlights card; card hover pulses marker
   const [hoveredObjectiveId,  setHoveredObjectiveId]  = useState<string | null>(null);
   const [hoveredCardId,       setHoveredCardId]       = useState<string | null>(null);
@@ -568,21 +658,6 @@ export default function MapPage() {
     setIsToInputValid(false);
   }
 
-  function handleCreateScenario() {
-    setIsAddingScenario(false);
-    setScenarioForPlan(null);
-    setUnitMoves([]);
-    setPendingMove(null);
-    setPendingMoveToInput("");
-    setIsToInputValid(false);
-    setScenarioActions([]);
-    setSelectedUnitId(null);
-    setFireMissionCrosshairPos(null);
-    setPendingFireMission(null);
-    setFireMissionForm({ targetType:"", weaponType:"", batterySheaf:"", fireType:"" });
-    setConfirmedFireMissions([]);
-  }
-
   function handleBackFromScenario() {
     setIsAddingScenario(false);
     setScenarioForPlan(null);
@@ -719,7 +794,56 @@ export default function MapPage() {
     }
   }
 
-  // suppress unused warning — scenarioForPlan will be used when scenario submission is wired
+  function handleCancelFinalize() {
+    setShowFinalizeDialog(false);
+    setFinalizeForm({ name: "", color: "", execMode: "standalone", date: "", time: "" });
+    setFinalizeErrors({ name: false, color: false, date: false, time: false });
+  }
+
+  function handleSaveScenario() {
+    const errors = {
+      name:  !finalizeForm.name.trim(),
+      color: !finalizeForm.color,
+      date:  finalizeForm.execMode === "standalone" && !finalizeForm.date,
+      time:  finalizeForm.execMode === "standalone" && !finalizeForm.time,
+    };
+    if (Object.values(errors).some(Boolean)) {
+      setFinalizeErrors(errors);
+      return;
+    }
+    setShowFinalizeDialog(false);
+    setFinalizeForm({ name: "", color: "", execMode: "standalone", date: "", time: "" });
+    setFinalizeErrors({ name: false, color: false, date: false, time: false });
+    setIsAddingScenario(false);
+    setScenarioForPlan(null);
+    setUnitMoves([]);
+    setPendingMove(null);
+    setPendingMoveToInput("");
+    setIsToInputValid(false);
+    setScenarioActions([]);
+    setSelectedUnitId(null);
+    setFireMissionCrosshairPos(null);
+    setPendingFireMission(null);
+    setFireMissionForm({ targetType: "", weaponType: "", batterySheaf: "", fireType: "" });
+    setConfirmedFireMissions([]);
+    setMapToast({ message: `"${finalizeForm.name}" has been added to the plan.` });
+  }
+
+  useEffect(() => {
+    if (!showFinalizeDialog) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") handleCancelFinalize();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showFinalizeDialog]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!mapToast) return;
+    const t = setTimeout(() => setMapToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [mapToast]);
+
   void scenarioForPlan;
 
   return (
@@ -1060,8 +1184,159 @@ export default function MapPage() {
         onAddScenario={handleAddScenario}
         onBackFromScenario={handleBackFromScenario}
         onScenarioModeChange={handleScenarioModeChange}
-        onCreateScenario={handleCreateScenario}
+        onCreateScenario={() => setShowFinalizeDialog(true)}
       />
+
+      {/* Finalize Your Scenario dialog */}
+      {showFinalizeDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75">
+          <div className="bg-[#0A0D0E] border border-[#101517] rounded-[8px] p-6 w-[560px] shadow-[0px_8px_32px_rgba(0,0,0,0.6)]">
+            <h2 className="text-white text-[24px] font-semibold font-['Inter'] mb-2">
+              Finalize Your Scenario
+            </h2>
+            <p className="text-[#9A999A] text-[14px] font-normal font-['Inter'] mb-6">
+              Set the plan name, choose its color, and define the execution time to complete the setup.
+            </p>
+
+            {/* Name */}
+            <div className="mb-4">
+              <label className="block mb-1">
+                <span className="text-white text-[12px] font-normal font-['Inter']">Name</span>
+                <span className="text-[#EB6F70] ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. secure river crossing"
+                value={finalizeForm.name}
+                onChange={(e) => {
+                  setFinalizeForm((p) => ({ ...p, name: e.target.value }));
+                  if (finalizeErrors.name) setFinalizeErrors((p) => ({ ...p, name: false }));
+                }}
+                className={`w-full bg-[#0D1112] rounded-[4px] px-3 py-3 text-white text-[14px] placeholder:text-[#9A999A] border outline-none transition-colors font-['Inter'] ${
+                  finalizeErrors.name ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"
+                }`}
+              />
+              {finalizeErrors.name && (
+                <p className="text-[#F64C4C] text-[12px] mt-1">Name is required</p>
+              )}
+            </div>
+
+            {/* Select Plan Color */}
+            <div className="mb-6">
+              <label className="block mb-1">
+                <span className="text-white text-[12px] font-normal font-['Inter']">Select Plan Color</span>
+                <span className="text-[#EB6F70] ml-1">*</span>
+              </label>
+              <ColorDropdown
+                value={finalizeForm.color}
+                onChange={(v) => {
+                  setFinalizeForm((p) => ({ ...p, color: v }));
+                  if (finalizeErrors.color) setFinalizeErrors((p) => ({ ...p, color: false }));
+                }}
+                hasError={finalizeErrors.color}
+              />
+              {finalizeErrors.color && (
+                <p className="text-[#F64C4C] text-[12px] mt-1">Please select a color</p>
+              )}
+            </div>
+
+            {/* Execution Time Settings */}
+            <div className="mb-4">
+              <h3 className="text-white text-[16px] font-semibold font-['Inter'] mb-3">
+                Execution Time Settings
+              </h3>
+
+              <div className="flex w-full border border-[#161D20] rounded-[4px] mb-4 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setFinalizeForm((p) => ({ ...p, execMode: "standalone" }))}
+                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
+                    finalizeForm.execMode === "standalone"
+                      ? "bg-[rgba(58,112,226,0.25)] text-[#4BA1FF]"
+                      : "bg-transparent text-[#3A70E2] hover:bg-[#161D20]"
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect x="1" y="3" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M1 7h14" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M5 1v4M11 1v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Standalone
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFinalizeForm((p) => ({ ...p, execMode: "dependent" }))}
+                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
+                    finalizeForm.execMode === "dependent"
+                      ? "bg-[rgba(58,112,226,0.25)] text-[#4BA1FF]"
+                      : "bg-transparent text-[#3A70E2] hover:bg-[#161D20]"
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 8a3 3 0 0 0 4.5.75l1.5-1.5a3 3 0 0 0-4.24-4.24l-.86.85" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M10 8a3 3 0 0 0-4.5-.75l-1.5 1.5a3 3 0 0 0 4.24 4.24l.85-.85" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Dependent
+                </button>
+              </div>
+
+              {finalizeForm.execMode === "standalone" && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="text-white text-[12px] font-normal font-['Inter'] block mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={finalizeForm.date}
+                      onChange={(e) => {
+                        setFinalizeForm((p) => ({ ...p, date: e.target.value }));
+                        if (finalizeErrors.date) setFinalizeErrors((p) => ({ ...p, date: false }));
+                      }}
+                      className={`w-full bg-[#0D1112] rounded-[4px] px-3 py-3 text-white text-[14px] border outline-none transition-colors font-['Inter'] [color-scheme:dark] ${
+                        finalizeErrors.date ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white text-[12px] font-normal font-['Inter'] block mb-1">Time</label>
+                    <input
+                      type="time"
+                      value={finalizeForm.time}
+                      onChange={(e) => {
+                        setFinalizeForm((p) => ({ ...p, time: e.target.value }));
+                        if (finalizeErrors.time) setFinalizeErrors((p) => ({ ...p, time: false }));
+                      }}
+                      className={`w-full bg-[#0D1112] rounded-[4px] px-3 py-3 text-white text-[14px] border outline-none transition-colors font-['Inter'] [color-scheme:dark] ${
+                        finalizeErrors.time ? "border-[#F64C4C]" : "border-[#161D20] focus:border-[#3A70E2]"
+                      }`}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {finalizeForm.execMode === "dependent" && (
+                <div className="p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] text-center">
+                  <p className="text-[#9A999A] text-[13px] font-['Inter']">Dependent execution — coming soon</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button variant="secondary" size="lg" className="flex-1" onClick={handleCancelFinalize}>Cancel</Button>
+              <Button variant="primary" size="lg" className="flex-1" onClick={handleSaveScenario}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {mapToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 bg-[#0C9D61] text-white px-4 py-3 rounded-[6px] shadow-[0px_4px_16px_rgba(0,0,0,0.4)]">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l4 4 6-6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[14px] font-semibold font-['Inter']">{mapToast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

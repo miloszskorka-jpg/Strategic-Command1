@@ -765,7 +765,7 @@ function AddScenarioPanel({
           onClick={onCreate}
           disabled={scenarioActions.length === 0}
         >
-          Create
+          Save Scenario
         </Button>
       </div>
     </div>
