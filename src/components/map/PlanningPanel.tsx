@@ -575,32 +575,117 @@ function CreatePlanForm({
   );
 }
 
+// ─── FM options + panel dropdown ─────────────────────────────────────────────
+
+const TARGET_TYPE_OPTIONS = [
+  { value: "personnel",  label: "Personnel" },
+  { value: "vehicles",   label: "Vehicles" },
+  { value: "structures", label: "Structures" },
+  { value: "equipment",  label: "Equipment / Weapon Type" },
+];
+const WEAPON_TYPE_OPTIONS = [
+  { value: "120mm_mortar",     label: "120mm Mortar" },
+  { value: "howitzer",         label: "Howitzer" },
+  { value: "drone",            label: "Drone" },
+  { value: "rocket_artillery", label: "Rocket Artillery" },
+];
+const BATTERY_SHEAF_OPTIONS = [
+  { value: "point_target", label: "Point Target" },
+  { value: "linear",       label: "Linear" },
+  { value: "circular",     label: "Circular" },
+  { value: "parallel",     label: "Parallel" },
+];
+const FIRE_TYPE_OPTIONS = [
+  { value: "fire_for_effect", label: "Fire for Effect" },
+  { value: "illumination",    label: "Illumination" },
+  { value: "smoke",           label: "Smoke" },
+];
+
+function PanelDropdown({
+  placeholder, options, value, onChange, success,
+}: {
+  placeholder: string;
+  options:     { value: string; label: string }[];
+  value:       string;
+  onChange:    (v: string) => void;
+  success?:    boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel   = options.find((o) => o.value === value)?.label;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between bg-[#0D1112] border border-[#232E33] rounded-[4px] px-3 py-2.5 gap-2 hover:border-[#465C66] transition-colors duration-150 cursor-pointer"
+      >
+        <span className={`text-[13px] font-normal font-['Inter'] flex-1 text-left ${selectedLabel ? "text-white" : "text-[#9A999A]"}`}>
+          {selectedLabel ?? placeholder}
+        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {success && value && (
+            <div className="size-[18px] rounded-full bg-[#0C9D61] flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          )}
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}>
+            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-0.5 z-20 bg-[#0D1112] border border-[#232E33] rounded-[4px] overflow-hidden shadow-lg">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-[13px] font-normal font-['Inter'] transition-colors duration-150 cursor-pointer ${opt.value === value ? "text-white bg-[#161D20]" : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Action item ─────────────────────────────────────────────────────────────
 
-function ActionItem({ action }: { action: Extract<ScenarioAction, { type: "move" }> }) {
+function ActionItem({ action, onDelete }: { action: Extract<ScenarioAction, { type: "move" }>; onDelete: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden transition-all duration-150 hover:border-[#232E33]">
-      <div
-        className="flex items-center justify-between px-3 py-3 cursor-pointer"
-        onClick={() => setIsExpanded((v) => !v)}
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => setIsExpanded((v) => !v)}>
           <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
             <path d="M1 6h6M4 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M8 6h6M11 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="text-white text-[14px] font-semibold font-['Inter']">
-            Move {action.unitName}
-          </span>
+          <span className="text-white text-[14px] font-semibold font-['Inter']">Move {action.unitName}</span>
         </div>
-        <svg
-          width="16" height="16" viewBox="0 0 16 16" fill="none"
-          className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
-        >
-          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="size-[24px] flex items-center justify-center text-[#EC2D30] hover:bg-[#EC2D30]/10 rounded-[4px] transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            className={`shrink-0 transition-transform duration-200 cursor-pointer ${isExpanded ? "rotate-180" : "rotate-0"}`}
+            onClick={() => setIsExpanded((v) => !v)}
+          >
+            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
 
       <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[160px] opacity-100" : "max-h-0 opacity-0"}`}>
@@ -643,7 +728,7 @@ const FM_LABELS: Record<string, string> = {
   smoke:            "Smoke",
 };
 
-function FireMissionActionItem({ action }: { action: Extract<ScenarioAction, { type: "fire_mission" }> }) {
+function FireMissionActionItem({ action, onDelete }: { action: Extract<ScenarioAction, { type: "fire_mission" }>; onDelete: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const rows = [
@@ -655,22 +740,31 @@ function FireMissionActionItem({ action }: { action: Extract<ScenarioAction, { t
 
   return (
     <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden hover:border-[#232E33] transition-colors duration-150">
-      <div
-        className="flex items-center justify-between px-3 py-3 cursor-pointer"
-        onClick={() => setIsExpanded((v) => !v)}
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => setIsExpanded((v) => !v)}>
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
             <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
           </svg>
           <span className="text-white text-[14px] font-semibold font-['Inter']">{action.name}</span>
         </div>
-        <svg
-          width="16" height="16" viewBox="0 0 16 16" fill="none"
-          className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
-        >
-          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="size-[24px] flex items-center justify-center text-[#EC2D30] hover:bg-[#EC2D30]/10 rounded-[4px] transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            className={`shrink-0 transition-transform duration-200 cursor-pointer ${isExpanded ? "rotate-180" : "rotate-0"}`}
+            onClick={() => setIsExpanded((v) => !v)}
+          >
+            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
 
       <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
@@ -689,96 +783,154 @@ function FireMissionActionItem({ action }: { action: Extract<ScenarioAction, { t
 
 // ─── Add Scenario panel ───────────────────────────────────────────────────────
 
+interface PendingMoveData {
+  unitId: string; unitName: string;
+  fromLat: number; fromLng: number;
+  toLat: number; toLng: number;
+}
+interface FireMissionFormData {
+  targetType: string; weaponType: string; batterySheaf: string; fireType: string;
+}
+
 function AddScenarioPanel({
-  onBack,
-  scenarioMode,
-  onModeChange,
-  scenarioActions,
+  onBack, scenarioActions, onDeleteAction,
+  pendingMove, pendingMoveToInput, isToInputValid,
+  onPendingMoveToInputChange, onPendingMoveToInputBlur, onConfirmMove, onCancelMove,
+  pendingFireMission, fireMissionForm, onFireMissionFormChange, onConfirmFireMission, onCancelFireMission,
   onCreate,
 }: {
-  onBack:           () => void;
-  scenarioMode:     ScenarioMode;
-  onModeChange:     (mode: ScenarioMode) => void;
-  scenarioActions:  ScenarioAction[];
-  onCreate:         () => void;
+  onBack:                       () => void;
+  scenarioActions:              ScenarioAction[];
+  onDeleteAction:               (id: string) => void;
+  pendingMove:                  PendingMoveData | null;
+  pendingMoveToInput:           string;
+  isToInputValid:               boolean;
+  onPendingMoveToInputChange:   (v: string) => void;
+  onPendingMoveToInputBlur:     (v: string) => void;
+  onConfirmMove:                () => void;
+  onCancelMove:                 () => void;
+  pendingFireMission:           { lat: number; lng: number } | null;
+  fireMissionForm:              FireMissionFormData;
+  onFireMissionFormChange:      (updates: Partial<FireMissionFormData>) => void;
+  onConfirmFireMission:         () => void;
+  onCancelFireMission:          () => void;
+  onCreate:                     () => void;
 }) {
   return (
-    <div className="flex flex-col flex-1">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="size-[40px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors cursor-pointer"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8L10 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <h2 className="text-white text-[24px] font-semibold font-['Inter']">Add Scenario</h2>
-      </div>
-      <div className="border-b border-[#161D20] mt-4 mb-6" />
-
-      <div className="flex w-full border border-[#161D20] rounded-[4px] mb-6 overflow-hidden">
-        {(["move_units", "fire_mission"] as const).map((mode) => (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-6">
+        <div className="flex items-center gap-3 mb-4">
           <button
-            key={mode}
-            onClick={() => onModeChange(mode)}
-            className={`flex-1 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
-              scenarioMode === mode
-                ? "bg-[#2D57B0] text-[#4BA1FF]"
-                : "bg-transparent text-[#4BA1FF] hover:bg-[#161D20]"
-            }`}
+            onClick={onBack}
+            className="size-[40px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors cursor-pointer"
           >
-            {mode === "move_units" ? "Move Units" : "Fire Mission"}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 12L6 8L10 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
-        ))}
+          <h2 className="text-white text-[24px] font-semibold font-['Inter']">Add Scenario</h2>
+        </div>
+        <div className="border-b border-[#161D20] mb-4" />
+
+        {/* Move confirm dialog */}
+        {pendingMove && (
+          <div className="bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <svg width="16" height="16" viewBox="0 0 20 16" fill="none">
+                <path d="M1 8h14M10 1l7 7-7 7" stroke="#4BA1FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-white text-[15px] font-semibold font-['Inter']">Move {pendingMove.unitName}</span>
+            </div>
+            <div className="mb-3">
+              <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">From</label>
+              <div className="flex items-center justify-between bg-[#161D20] border border-[#232E33] rounded-[4px] px-3 py-[10px]">
+                <span className="text-white text-[13px] font-['Inter']">
+                  {pendingMove.fromLat.toFixed(6)}, {pendingMove.fromLng.toFixed(6)}
+                </span>
+                <div className="size-[18px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">To</label>
+              <div className={`flex items-center gap-2 bg-[#161D20] border rounded-[4px] px-3 py-[10px] focus-within:border-[#3A70E2] transition-colors ${isToInputValid ? "border-[#6BC497]" : "border-[#232E33]"}`}>
+                <input
+                  type="text"
+                  value={pendingMoveToInput}
+                  onChange={(e) => onPendingMoveToInputChange(e.target.value)}
+                  onBlur={(e) => onPendingMoveToInputBlur(e.target.value)}
+                  placeholder="47.000000, 34.000000"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-white text-[13px] font-['Inter'] placeholder:text-[#9A999A]"
+                />
+                {isToInputValid && (
+                  <div className="size-[18px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={onCancelMove}>Cancel</Button>
+              <Button variant="primary" size="sm" disabled={!isToInputValid} onClick={onConfirmMove}>Confirm</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Fire mission confirm dialog */}
+        {pendingFireMission && (
+          <div className="bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
+              </svg>
+              <span className="text-white text-[15px] font-semibold font-['Inter']">Configure Fire Mission</span>
+            </div>
+            <div className="flex flex-col gap-3 mb-4">
+              <div>
+                <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">Target Type</label>
+                <PanelDropdown placeholder="choose a target" options={TARGET_TYPE_OPTIONS} value={fireMissionForm.targetType} onChange={(v) => onFireMissionFormChange({ targetType: v })} success={!!fireMissionForm.targetType} />
+              </div>
+              <div>
+                <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">Weapon Type</label>
+                <PanelDropdown placeholder="choose a weapon" options={WEAPON_TYPE_OPTIONS} value={fireMissionForm.weaponType} onChange={(v) => onFireMissionFormChange({ weaponType: v })} success={!!fireMissionForm.weaponType} />
+              </div>
+              <div>
+                <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">Battery Sheaf</label>
+                <PanelDropdown placeholder="choose a pattern" options={BATTERY_SHEAF_OPTIONS} value={fireMissionForm.batterySheaf} onChange={(v) => onFireMissionFormChange({ batterySheaf: v })} success={!!fireMissionForm.batterySheaf} />
+              </div>
+              <div>
+                <label className="text-[#9A999A] text-[12px] font-['Inter'] block mb-1">Fire Type</label>
+                <PanelDropdown placeholder="choose a fire type" options={FIRE_TYPE_OPTIONS} value={fireMissionForm.fireType} onChange={(v) => onFireMissionFormChange({ fireType: v })} success={!!fireMissionForm.fireType} />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={onCancelFireMission}>Cancel</Button>
+              <Button variant="primary" size="sm" disabled={!fireMissionForm.targetType || !fireMissionForm.weaponType || !fireMissionForm.batterySheaf || !fireMissionForm.fireType} onClick={onConfirmFireMission}>Confirm</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Action list */}
+        {scenarioActions.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {scenarioActions.map((action) =>
+              action.type === "move"
+                ? <ActionItem key={action.id} action={action} onDelete={() => onDeleteAction(action.id)} />
+                : <FireMissionActionItem key={action.id} action={action} onDelete={() => onDeleteAction(action.id)} />
+            )}
+          </div>
+        )}
       </div>
 
-      {scenarioMode === "move_units" && (
-        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
-          <div className="size-[24px] rounded-full shrink-0 mt-[1px] bg-[#232E33] border border-[#465C66] flex items-center justify-center">
-            <span className="text-[#9A999A] text-[12px] font-bold">?</span>
-          </div>
-          <div>
-            <p className="text-white text-[13px] font-semibold font-['Inter'] mb-1">Move Squad Units</p>
-            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter']">
-              To reposition a unit, drag it directly on the map. This action is available only for Squad units.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {scenarioMode === "fire_mission" && (
-        <div className="flex items-start gap-3 p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px]">
-          <div className="size-[24px] rounded-full shrink-0 mt-[1px] bg-[#232E33] border border-[#465C66] flex items-center justify-center">
-            <span className="text-[#9A999A] text-[12px] font-bold">?</span>
-          </div>
-          <div>
-            <p className="text-white text-[13px] font-semibold font-['Inter'] mb-1">Fire Mission Mode</p>
-            <p className="text-[#9A999A] text-[12px] font-normal font-['Inter']">
-              To begin configuring a fire mission, place the crosshair over the target on the map.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {scenarioActions.length > 0 && (
-        <div className="mt-4 flex flex-col gap-2">
-          {scenarioActions.map((action) =>
-            action.type === "move"
-              ? <ActionItem key={action.id} action={action} />
-              : <FireMissionActionItem key={action.id} action={action} />
-          )}
-        </div>
-      )}
-
-      <div className="mt-auto pt-4">
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full"
-          onClick={onCreate}
-          disabled={scenarioActions.length === 0}
-        >
+      {/* Sticky footer */}
+      <div className="shrink-0 p-4 pt-3 border-t border-[#161D20]">
+        <Button variant="primary" size="lg" className="w-full" disabled={scenarioActions.length === 0} onClick={onCreate}>
           Save Scenario
         </Button>
       </div>
@@ -791,29 +943,40 @@ function AddScenarioPanel({
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
 
 export interface PlanningPanelProps {
-  isCreating:           boolean;
-  onStartCreating:      () => void;
-  onStopCreating:       () => void;
-  mapClickCoords:       string;
-  objectives:           Objective[];
-  onCreateObjective:    (obj: Objective) => void;
-  onDeleteObjective:    (id: string) => void;
-  plans:                Plan[];
-  onPlanCreated:        (plan: Plan) => void;
-  onDeletePlan:         (planId: string) => void;
-  hoveredObjectiveId:   string | null;
-  hoveredCardId:        string | null;
-  selectedObjectiveId:  string | null;
-  onCardHover:          (id: string) => void;
-  onCardHoverEnd:       () => void;
-  onCardClick:          (id: string) => void;
-  isAddingScenario:     boolean;
-  scenarioMode:         ScenarioMode;
-  scenarioActions:      ScenarioAction[];
-  onAddScenario:        (plan: Plan) => void;
-  onBackFromScenario:   () => void;
-  onScenarioModeChange: (mode: ScenarioMode) => void;
-  onCreateScenario:     () => void;
+  isCreating:                 boolean;
+  onStartCreating:            () => void;
+  onStopCreating:             () => void;
+  mapClickCoords:             string;
+  objectives:                 Objective[];
+  onCreateObjective:          (obj: Objective) => void;
+  onDeleteObjective:          (id: string) => void;
+  plans:                      Plan[];
+  onPlanCreated:              (plan: Plan) => void;
+  onDeletePlan:               (planId: string) => void;
+  hoveredObjectiveId:         string | null;
+  hoveredCardId:              string | null;
+  selectedObjectiveId:        string | null;
+  onCardHover:                (id: string) => void;
+  onCardHoverEnd:             () => void;
+  onCardClick:                (id: string) => void;
+  isAddingScenario:           boolean;
+  scenarioActions:            ScenarioAction[];
+  onAddScenario:              (plan: Plan) => void;
+  onBackFromScenario:         () => void;
+  onCreateScenario:           () => void;
+  onDeleteAction:             (id: string) => void;
+  pendingMove:                PendingMoveData | null;
+  pendingMoveToInput:         string;
+  isToInputValid:             boolean;
+  onPendingMoveToInputChange: (v: string) => void;
+  onPendingMoveToInputBlur:   (v: string) => void;
+  onConfirmMove:              () => void;
+  onCancelMove:               () => void;
+  pendingFireMission:         { lat: number; lng: number } | null;
+  fireMissionForm:            FireMissionFormData;
+  onFireMissionFormChange:    (updates: Partial<FireMissionFormData>) => void;
+  onConfirmFireMission:       () => void;
+  onCancelFireMission:        () => void;
 }
 
 export function PlanningPanel({
@@ -822,8 +985,11 @@ export function PlanningPanel({
   plans, onPlanCreated, onDeletePlan,
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
-  isAddingScenario, scenarioMode, scenarioActions,
-  onAddScenario, onBackFromScenario, onScenarioModeChange, onCreateScenario,
+  isAddingScenario, scenarioActions,
+  onAddScenario, onBackFromScenario, onCreateScenario, onDeleteAction,
+  pendingMove, pendingMoveToInput, isToInputValid,
+  onPendingMoveToInputChange, onPendingMoveToInputBlur, onConfirmMove, onCancelMove,
+  pendingFireMission, fireMissionForm, onFireMissionFormChange, onConfirmFireMission, onCancelFireMission,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -898,17 +1064,30 @@ export function PlanningPanel({
   return (
     <>
       <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-hidden flex flex-col">
+        {isAddingScenario ? (
+          <AddScenarioPanel
+            onBack={onBackFromScenario}
+            scenarioActions={scenarioActions}
+            onDeleteAction={onDeleteAction}
+            pendingMove={pendingMove}
+            pendingMoveToInput={pendingMoveToInput}
+            isToInputValid={isToInputValid}
+            onPendingMoveToInputChange={onPendingMoveToInputChange}
+            onPendingMoveToInputBlur={onPendingMoveToInputBlur}
+            onConfirmMove={onConfirmMove}
+            onCancelMove={onCancelMove}
+            pendingFireMission={pendingFireMission}
+            fireMissionForm={fireMissionForm}
+            onFireMissionFormChange={onFireMissionFormChange}
+            onConfirmFireMission={onConfirmFireMission}
+            onCancelFireMission={onCancelFireMission}
+            onCreate={onCreateScenario}
+          />
+        ) : (
+          <>
         <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto min-h-0">
 
-          {isAddingScenario ? (
-            <AddScenarioPanel
-              onBack={onBackFromScenario}
-              scenarioMode={scenarioMode}
-              onModeChange={onScenarioModeChange}
-              scenarioActions={scenarioActions}
-              onCreate={onCreateScenario}
-            />
-          ) : isCreating ? (
+          {isCreating ? (
             <CreateObjectiveForm
               mapClickCoords={mapClickCoords}
               onCancel={onStopCreating}
@@ -1029,6 +1208,8 @@ export function PlanningPanel({
               Save
             </Button>
           </div>
+        )}
+          </>
         )}
       </div>
 

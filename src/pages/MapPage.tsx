@@ -115,72 +115,6 @@ function toRoman(n: number): string {
   return result;
 }
 
-// ─── Dropdown ─────────────────────────────────────────────────────────────────
-
-interface DropdownOption { value: string; label: string; }
-
-function Dropdown({
-  placeholder,
-  options,
-  value,
-  onChange,
-  status = "default",
-}: {
-  placeholder: string;
-  options:     DropdownOption[];
-  value:       string;
-  onChange:    (v: string) => void;
-  status?:     "default" | "success";
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedLabel   = options.find((o) => o.value === value)?.label;
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between bg-[#0D1112] border border-[#232E33] rounded-[4px] px-3 py-3 gap-2 hover:border-[#465C66] transition-colors duration-150 cursor-pointer"
-      >
-        <span className={`text-[14px] font-normal font-['Inter'] flex-1 text-left ${selectedLabel ? "text-white" : "text-[#9A999A]"}`}>
-          {selectedLabel ?? placeholder}
-        </span>
-        <div className="flex items-center gap-2 shrink-0">
-          {status === "success" && value && (
-            <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          )}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}>
-            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-[#0D1112] border border-[#232E33] rounded-[4px] overflow-hidden shadow-lg">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`w-full text-left px-3 py-2.5 text-[14px] font-normal font-['Inter'] transition-colors duration-150 cursor-pointer ${
-                opt.value === value
-                  ? "text-white bg-[#161D20]"
-                  : "text-[#9A999A] hover:text-white hover:bg-[#161D20]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Color dropdown ───────────────────────────────────────────────────────────
 
 const PLAN_COLORS = [
@@ -621,9 +555,9 @@ export default function MapPage() {
     });
   }
 
-  function handleConfirmMove(toInput: string) {
+  function handleConfirmMove() {
     if (!pendingMove) return;
-    const parts = toInput.split(",").map((s) => s.trim());
+    const parts = pendingMoveToInput.split(",").map((s) => s.trim());
     const toLat = parseFloat(parts[0]);
     const toLng = parseFloat(parts[1]);
 
@@ -657,6 +591,21 @@ export default function MapPage() {
     setPendingMoveToInput("");
     setIsToInputValid(false);
   }
+
+  function handlePendingMoveToInputChange(v: string) {
+    setPendingMoveToInput(v);
+    setIsToInputValid(false);
+  }
+
+  function handleFireMissionFormChange(updates: Partial<typeof fireMissionForm>) {
+    setFireMissionForm((prev) => ({ ...prev, ...updates }));
+  }
+
+  function handleDeleteAction(id: string) {
+    setScenarioActions((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  const hasActiveAction = pendingMove !== null || pendingFireMission !== null;
 
   function handleBackFromScenario() {
     setIsAddingScenario(false);
@@ -1017,147 +966,38 @@ export default function MapPage() {
           </div>
         )}
 
-        {/* Fire mission config panel */}
-        {pendingFireMission && (
-          <div className="absolute top-6 right-6 z-50 bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 w-[400px] shadow-[0px_4px_24px_rgba(0,0,0,0.6)]">
-            <div className="flex items-center gap-2 mb-4">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
-              </svg>
-              <span className="text-white text-[16px] font-semibold font-['Inter']">Configure Fire Mission</span>
-            </div>
-
-            <div className="mb-3">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Target Type</label>
-              <Dropdown
-                placeholder="choose a target"
-                options={[
-                  { value: "personnel",  label: "Personnel" },
-                  { value: "vehicles",   label: "Vehicles" },
-                  { value: "structures", label: "Structures" },
-                  { value: "equipment",  label: "Equipment / Weapon Type" },
-                ]}
-                value={fireMissionForm.targetType}
-                onChange={(v) => setFireMissionForm((p) => ({ ...p, targetType: v }))}
-                status={fireMissionForm.targetType ? "success" : "default"}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Weapon Type</label>
-              <Dropdown
-                placeholder="choose a weapon"
-                options={[
-                  { value: "120mm_mortar",     label: "120mm Mortar" },
-                  { value: "howitzer",         label: "Howitzer" },
-                  { value: "drone",            label: "Drone" },
-                  { value: "rocket_artillery", label: "Rocket Artillery" },
-                ]}
-                value={fireMissionForm.weaponType}
-                onChange={(v) => setFireMissionForm((p) => ({ ...p, weaponType: v }))}
-                status={fireMissionForm.weaponType ? "success" : "default"}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Battery Sheaf</label>
-              <Dropdown
-                placeholder="choose a pattern"
-                options={[
-                  { value: "point_target", label: "Point Target" },
-                  { value: "linear",       label: "Linear" },
-                  { value: "circular",     label: "Circular" },
-                  { value: "parallel",     label: "Parallel" },
-                ]}
-                value={fireMissionForm.batterySheaf}
-                onChange={(v) => setFireMissionForm((p) => ({ ...p, batterySheaf: v }))}
-                status={fireMissionForm.batterySheaf ? "success" : "default"}
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">Fire Type</label>
-              <Dropdown
-                placeholder="choose a fire type"
-                options={[
-                  { value: "fire_for_effect", label: "Fire for Effect" },
-                  { value: "illumination",    label: "Illumination" },
-                  { value: "smoke",           label: "Smoke" },
-                ]}
-                value={fireMissionForm.fireType}
-                onChange={(v) => setFireMissionForm((p) => ({ ...p, fireType: v }))}
-                status={fireMissionForm.fireType ? "success" : "default"}
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={handleCancelFireMission}>Cancel</Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!fireMissionForm.targetType || !fireMissionForm.weaponType || !fireMissionForm.batterySheaf || !fireMissionForm.fireType}
-                onClick={handleConfirmFireMission}
-              >
-                Confirm
-              </Button>
-            </div>
+        {/* Scenario mode toggle — centered top of map */}
+        {isAddingScenario && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-[#0D1112] border border-[#161D20] rounded-[8px] p-[6px] gap-[4px]">
+            <button
+              disabled={hasActiveAction}
+              onClick={() => !hasActiveAction && handleScenarioModeChange("move_units")}
+              className={`flex items-center justify-center px-[20px] py-[8px] rounded-[4px] min-w-[140px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 ${hasActiveAction ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${scenarioMode === "move_units" ? "bg-[#0C9D61] text-white" : "bg-transparent text-[#0C9D61] hover:bg-[#0C9D61]/10"}`}
+            >
+              Move Units
+            </button>
+            <button
+              disabled={hasActiveAction}
+              onClick={() => !hasActiveAction && handleScenarioModeChange("fire_mission")}
+              className={`flex items-center justify-center px-[20px] py-[8px] rounded-[4px] min-w-[140px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 ${hasActiveAction ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${scenarioMode === "fire_mission" ? "bg-[#0C9D61] text-white" : "bg-transparent text-[#0C9D61] hover:bg-[#0C9D61]/10"}`}
+            >
+              Fire Mission
+            </button>
           </div>
         )}
 
-        {/* Floating confirm dialog — appears after unit drag */}
-        {pendingMove && (
-          <div className="absolute top-6 right-6 z-50 bg-[#0D1112] border border-[#232E33] rounded-[8px] p-4 w-[380px] shadow-[0px_4px_24px_rgba(0,0,0,0.6)]">
-            <div className="flex items-center gap-2 mb-4">
-              <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
-                <path d="M1 8h14M10 1l7 7-7 7" stroke="#4BA1FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M1 8h8" stroke="#4BA1FF" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span className="text-white text-[16px] font-semibold font-['Inter']">
-                Move {pendingMove.unitName}
-              </span>
-            </div>
-
-            {/* From — read only */}
-            <div className="mb-3">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">From:</label>
-              <div className="flex items-center justify-between bg-[#0D1112] border border-[#6BC497] rounded-[4px] px-3 py-3">
-                <span className="text-white text-[14px] font-normal font-['Inter']">
-                  {pendingMove.fromLat.toFixed(6)}, {pendingMove.fromLng.toFixed(6)}
-                </span>
-                <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* To — editable */}
-            <div className="mb-4">
-              <label className="text-[#9A999A] text-[12px] font-normal font-['Inter'] block mb-1">To:</label>
-              <div className="flex items-center bg-[#0D1112] border border-[#3A70E2] rounded-[4px] px-3 py-3 gap-2 focus-within:border-[#4BA1FF] transition-colors duration-150">
-                <input
-                  type="text"
-                  value={pendingMoveToInput}
-                  onChange={(e) => setPendingMoveToInput(e.target.value)}
-                  onBlur={(e) => handleToInputBlur(e.target.value)}
-                  placeholder="47.000000, 34.000000"
-                  className="flex-1 min-w-0 bg-transparent outline-none text-white text-[14px] font-normal font-['Inter'] placeholder:text-[#9A999A]"
-                />
-                {isToInputValid && (
-                  <div className="size-[20px] rounded-full bg-[#0C9D61] flex items-center justify-center shrink-0">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={handleCancelMove}>Cancel</Button>
-              <Button variant="primary" size="sm" disabled={!isToInputValid} onClick={() => handleConfirmMove(pendingMoveToInput)}>Confirm</Button>
-            </div>
+        {/* Contextual instruction tooltip — bottom-left */}
+        {isAddingScenario && !pendingMove && !pendingFireMission && (
+          <div className="absolute bottom-20 left-4 z-20 w-[320px] bg-[#0D1112] border border-[#232E33] rounded-[8px] px-4 py-3 shadow-[0px_4px_16px_rgba(0,0,0,0.4)]">
+            {scenarioMode === "move_units" ? (
+              <p className="text-[#9A999A] text-[13px] font-['Inter'] leading-[18px]">
+                Drag a <span className="text-white font-semibold">squad unit</span> to its new position, then drop to confirm the move.
+              </p>
+            ) : (
+              <p className="text-[#9A999A] text-[13px] font-['Inter'] leading-[18px]">
+                Drag the <span className="text-white font-semibold">red crosshair</span> to the target location, then drop to configure the fire mission.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -1180,12 +1020,23 @@ export default function MapPage() {
         onCardHoverEnd={() => setHoveredCardId(null)}
         onCardClick={handleObjectiveClick}
         isAddingScenario={isAddingScenario}
-        scenarioMode={scenarioMode}
         scenarioActions={scenarioActions}
         onAddScenario={handleAddScenario}
         onBackFromScenario={handleBackFromScenario}
-        onScenarioModeChange={handleScenarioModeChange}
         onCreateScenario={() => setShowFinalizeDialog(true)}
+        onDeleteAction={handleDeleteAction}
+        pendingMove={pendingMove}
+        pendingMoveToInput={pendingMoveToInput}
+        isToInputValid={isToInputValid}
+        onPendingMoveToInputChange={handlePendingMoveToInputChange}
+        onPendingMoveToInputBlur={handleToInputBlur}
+        onConfirmMove={handleConfirmMove}
+        onCancelMove={handleCancelMove}
+        pendingFireMission={pendingFireMission}
+        fireMissionForm={fireMissionForm}
+        onFireMissionFormChange={handleFireMissionFormChange}
+        onConfirmFireMission={handleConfirmFireMission}
+        onCancelFireMission={handleCancelFireMission}
       />
 
       {/* Finalize Your Scenario dialog */}
