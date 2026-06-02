@@ -46,6 +46,18 @@ interface ConfirmedFireMission {
   fireType:    string;
 }
 
+interface SavedScenario {
+  id:          string;
+  name:        string;
+  color:       string;
+  execMode:    "standalone" | "dependent";
+  date:        string;
+  time:        string;
+  dependsOnId: string | null;
+  actions:     ScenarioAction[];
+  createdAt:   string;
+}
+
 const MOCK_UNITS: MapUnit[] = [
   { id: "bat-1",      name: "BAT_1",      lat: 47.5680, lng: 34.3960, unitType: "Battalion",           parentId: null                       },
   { id: "co-inf-1",   name: "CO_INF_1",   lat: 47.5820, lng: 34.3700, unitType: "Company (infantry)",  parentId: "bat-1"                    },
@@ -115,82 +127,84 @@ function toRoman(n: number): string {
   return result;
 }
 
-// ─── Color dropdown ───────────────────────────────────────────────────────────
+// ─── Scenario colors ──────────────────────────────────────────────────────────
 
-const PLAN_COLORS = [
-  { value: "green",  hex: "#0C9D61", label: "Green"  },
-  { value: "yellow", hex: "#FFC62B", label: "Yellow" },
-  { value: "red",    hex: "#EC2D30", label: "Red"    },
-  { value: "purple", hex: "#5900D9", label: "Purple" },
-  { value: "blue",   hex: "#3A70E2", label: "Blue"   },
+const SCENARIO_COLORS = [
+  { value: "blue",   hex: "#3A70E2" },
+  { value: "green",  hex: "#0C9D61" },
+  { value: "yellow", hex: "#FFC62B" },
+  { value: "red",    hex: "#EC2D30" },
+  { value: "purple", hex: "#5900D9" },
+  { value: "blue2",  hex: "#4BA1FF" },
+  { value: "gray",   hex: "#9A999A" },
 ];
 
-function ColorDropdown({
-  value,
-  onChange,
-  hasError = false,
+// ─── Depends-on dropdown ──────────────────────────────────────────────────────
+
+function DependsOnDropdown({
+  scenarios, value, onChange, hasError = false,
 }: {
+  scenarios: SavedScenario[];
   value:     string;
   onChange:  (v: string) => void;
   hasError?: boolean;
 }) {
-  const [isOpen,  setIsOpen]  = useState(false);
-  const containerRef           = useRef<HTMLDivElement>(null);
-  const selected               = PLAN_COLORS.find((c) => c.value === value);
+  const [isOpen, setIsOpen] = useState(false);
+  const ref                  = useRef<HTMLDivElement>(null);
+  const selected             = scenarios.find((s) => s.id === value);
 
   useEffect(() => {
-    if (!isOpen) return;
     function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
     }
-    document.addEventListener("mousedown", handler);
+    if (isOpen) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className={`
-          w-full flex items-center justify-between px-3 py-3
-          bg-[#0D1112] border rounded-[4px] outline-none cursor-pointer
-          transition-colors duration-150
-          ${hasError ? "border-[#F64C4C]" : isOpen ? "border-[#3A70E2]" : "border-[#161D20] hover:border-[#232E33]"}
-        `}
+        className={`w-full flex items-center justify-between px-3 py-3 bg-[#0D1112] border rounded-[4px] transition-colors duration-150 outline-none cursor-pointer ${
+          hasError ? "border-[#F64C4C]" : isOpen ? "border-[#3A70E2]" : "border-[#161D20] hover:border-[#232E33]"
+        }`}
       >
-        <div className="flex items-center gap-2">
-          {selected ? (
-            <>
-              <div className="size-[16px] rounded-full shrink-0" style={{ backgroundColor: selected.hex }} />
-              <span className="text-white text-[14px] font-normal font-['Inter']">{selected.label}</span>
-            </>
-          ) : (
-            <span className="text-[#9A999A] text-[14px] font-normal font-['Inter']">choose a color</span>
+        <span className={`text-[14px] font-normal font-['Inter'] ${selected ? "text-white" : "text-[#9A999A]"}`}>
+          {selected ? selected.name : "select parent scenario"}
+        </span>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {selected && (
+            <div className="size-[18px] rounded-full bg-[#0C9D61] flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
           )}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform ${isOpen ? "rotate-180" : ""}`}>
+            <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
-        <svg
-          width="16" height="16" viewBox="0 0 16 16" fill="none"
-          className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-        >
-          <path d="M4 6l4 4 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-0 bg-[#0D1112] border border-[#3A70E2] rounded-[4px] py-2 overflow-hidden shadow-[0px_4px_16px_rgba(0,0,0,0.4)]">
-          {PLAN_COLORS.map((color) => (
-            <button
-              key={color.value}
-              type="button"
-              onClick={() => { onChange(color.value); setIsOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-[10px] hover:bg-[#161D20] transition-colors cursor-pointer"
-            >
-              <div className="size-[20px] rounded-full shrink-0" style={{ backgroundColor: color.hex }} />
-            </button>
-          ))}
+        <div className="absolute top-full left-0 right-0 z-50 mt-0 bg-[#0D1112] border border-[#3A70E2] rounded-[4px] overflow-hidden shadow-[0px_4px_16px_rgba(0,0,0,0.4)]">
+          {scenarios.length === 0 ? (
+            <div className="px-3 py-8 flex items-center justify-center min-h-[120px]">
+              <p className="text-[#9A999A] text-[13px] font-['Inter'] text-center">No scenarios to select.</p>
+            </div>
+          ) : (
+            scenarios.map((scenario) => (
+              <button
+                key={scenario.id}
+                type="button"
+                onClick={() => { onChange(scenario.id); setIsOpen(false); }}
+                className={`w-full text-left px-3 py-[10px] text-[14px] font-normal font-['Inter'] text-white hover:bg-[#161D20] transition-colors cursor-pointer ${value === scenario.id ? "bg-[#161D20]" : ""}`}
+              >
+                {scenario.name}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -394,9 +408,10 @@ export default function MapPage() {
   // Finalize dialog state
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   const [finalizeForm, setFinalizeForm] = useState({
-    name: "", color: "", execMode: "standalone" as "standalone" | "dependent", date: "", time: "",
+    name: "", color: "", execMode: "standalone" as "standalone" | "dependent", date: "", time: "", dependsOnId: "",
   });
-  const [finalizeErrors, setFinalizeErrors] = useState({ name: false, color: false, date: false, time: false });
+  const [finalizeErrors, setFinalizeErrors] = useState({ name: false, color: false, date: false, time: false, dependsOn: false });
+  const [savedScenarios, setSavedScenarios] = useState<SavedScenario[]>([]);
   const [mapToast, setMapToast] = useState<{ message: string } | null>(null);
 
   // Hover state: marker hover highlights card; card hover pulses marker
@@ -743,26 +758,54 @@ export default function MapPage() {
     }
   }
 
+  const BLANK_FINALIZE_FORM = { name: "", color: "", execMode: "standalone" as const, date: "", time: "", dependsOnId: "" };
+  const BLANK_FINALIZE_ERRORS = { name: false, color: false, date: false, time: false, dependsOn: false };
+
   function handleCancelFinalize() {
     setShowFinalizeDialog(false);
-    setFinalizeForm({ name: "", color: "", execMode: "standalone", date: "", time: "" });
-    setFinalizeErrors({ name: false, color: false, date: false, time: false });
+    setFinalizeForm(BLANK_FINALIZE_FORM);
+    setFinalizeErrors(BLANK_FINALIZE_ERRORS);
   }
 
   function handleSaveScenario() {
+    const isStandalone = finalizeForm.execMode === "standalone";
+    const isDependent  = finalizeForm.execMode === "dependent";
     const errors = {
-      name:  !finalizeForm.name.trim(),
-      color: !finalizeForm.color,
-      date:  finalizeForm.execMode === "standalone" && !finalizeForm.date,
-      time:  finalizeForm.execMode === "standalone" && !finalizeForm.time,
+      name:      !finalizeForm.name.trim(),
+      color:     !finalizeForm.color,
+      date:      isStandalone && !finalizeForm.date,
+      time:      isStandalone && !finalizeForm.time,
+      dependsOn: isDependent  && !finalizeForm.dependsOnId,
     };
     if (Object.values(errors).some(Boolean)) {
       setFinalizeErrors(errors);
       return;
     }
+
+    let execDate = finalizeForm.date;
+    let execTime = finalizeForm.time;
+    if (isDependent && finalizeForm.dependsOnId) {
+      const parent = savedScenarios.find((s) => s.id === finalizeForm.dependsOnId);
+      if (parent) { execDate = parent.date; execTime = parent.time; }
+    }
+
+    const newScenario: SavedScenario = {
+      id:          Date.now().toString(),
+      name:        finalizeForm.name,
+      color:       finalizeForm.color,
+      execMode:    finalizeForm.execMode,
+      date:        execDate,
+      time:        execTime,
+      dependsOnId: finalizeForm.dependsOnId || null,
+      actions:     scenarioActions,
+      createdAt:   new Date().toISOString(),
+    };
+    setSavedScenarios((prev) => [...prev, newScenario]);
+
+    const savedName = finalizeForm.name;
     setShowFinalizeDialog(false);
-    setFinalizeForm({ name: "", color: "", execMode: "standalone", date: "", time: "" });
-    setFinalizeErrors({ name: false, color: false, date: false, time: false });
+    setFinalizeForm(BLANK_FINALIZE_FORM);
+    setFinalizeErrors(BLANK_FINALIZE_ERRORS);
     setIsAddingScenario(false);
     setScenarioForPlan(null);
     setUnitMoves([]);
@@ -775,7 +818,7 @@ export default function MapPage() {
     setPendingFireMission(null);
     setFireMissionForm({ targetType: "", weaponType: "", batterySheaf: "", fireType: "" });
     setConfirmedFireMissions([]);
-    setMapToast({ message: `"${finalizeForm.name}" has been added to the plan.` });
+    setMapToast({ message: `"${savedName}" has been added to the plan.` });
   }
 
   useEffect(() => {
@@ -1073,20 +1116,34 @@ export default function MapPage() {
               )}
             </div>
 
-            {/* Select Plan Color */}
+            {/* Select Scenario Color */}
             <div className="mb-6">
-              <label className="block mb-1">
-                <span className="text-white text-[12px] font-normal font-['Inter']">Select Plan Color</span>
+              <label className="block mb-2">
+                <span className="text-white text-[12px] font-normal font-['Inter']">Select Scenario Color</span>
                 <span className="text-[#EB6F70] ml-1">*</span>
               </label>
-              <ColorDropdown
-                value={finalizeForm.color}
-                onChange={(v) => {
-                  setFinalizeForm((p) => ({ ...p, color: v }));
-                  if (finalizeErrors.color) setFinalizeErrors((p) => ({ ...p, color: false }));
-                }}
-                hasError={finalizeErrors.color}
-              />
+              <div className="flex items-center gap-3 flex-wrap">
+                {SCENARIO_COLORS.map((color) => {
+                  const isSelected = finalizeForm.color === color.value;
+                  return (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => { setFinalizeForm((p) => ({ ...p, color: color.value })); setFinalizeErrors((p) => ({ ...p, color: false })); }}
+                      className="flex items-center gap-1 cursor-pointer"
+                    >
+                      <div className={`size-[18px] rounded-[3px] border flex items-center justify-center transition-colors duration-150 shrink-0 ${isSelected ? "bg-[#3A70E2] border-[#3A70E2]" : "bg-transparent border-[#555455]"}`}>
+                        {isSelected && (
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="size-[20px] rounded-full shrink-0" style={{ backgroundColor: color.hex }} />
+                    </button>
+                  );
+                })}
+              </div>
               {finalizeErrors.color && (
                 <p className="text-[#F64C4C] text-[12px] mt-1">Please select a color</p>
               )}
@@ -1102,10 +1159,10 @@ export default function MapPage() {
                 <button
                   type="button"
                   onClick={() => setFinalizeForm((p) => ({ ...p, execMode: "standalone" }))}
-                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer rounded-[4px] ${
                     finalizeForm.execMode === "standalone"
-                      ? "bg-[rgba(58,112,226,0.25)] text-[#4BA1FF]"
-                      : "bg-transparent text-[#3A70E2] hover:bg-[#161D20]"
+                      ? "bg-[#0C9D61] text-white"
+                      : "bg-transparent text-[#0C9D61] hover:bg-[#0C9D61]/10"
                   }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -1118,10 +1175,10 @@ export default function MapPage() {
                 <button
                   type="button"
                   onClick={() => setFinalizeForm((p) => ({ ...p, execMode: "dependent" }))}
-                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-2 py-[10px] text-[14px] font-semibold font-['Inter'] transition-colors duration-150 cursor-pointer rounded-[4px] ${
                     finalizeForm.execMode === "dependent"
-                      ? "bg-[rgba(58,112,226,0.25)] text-[#4BA1FF]"
-                      : "bg-transparent text-[#3A70E2] hover:bg-[#161D20]"
+                      ? "bg-[#0C9D61] text-white"
+                      : "bg-transparent text-[#0C9D61] hover:bg-[#0C9D61]/10"
                   }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -1166,8 +1223,20 @@ export default function MapPage() {
               )}
 
               {finalizeForm.execMode === "dependent" && (
-                <div className="p-3 bg-[#0D1112] border border-[#161D20] rounded-[4px] text-center">
-                  <p className="text-[#9A999A] text-[13px] font-['Inter']">Dependent execution — coming soon</p>
+                <div>
+                  <label className="block mb-1">
+                    <span className="text-white text-[12px] font-normal font-['Inter']">Depends on</span>
+                    <span className="text-[#EB6F70] ml-1">*</span>
+                  </label>
+                  <DependsOnDropdown
+                    scenarios={savedScenarios}
+                    value={finalizeForm.dependsOnId}
+                    onChange={(v) => { setFinalizeForm((p) => ({ ...p, dependsOnId: v })); setFinalizeErrors((p) => ({ ...p, dependsOn: false })); }}
+                    hasError={finalizeErrors.dependsOn}
+                  />
+                  {finalizeErrors.dependsOn && (
+                    <p className="text-[#F64C4C] text-[12px] mt-1">Please select a parent scenario</p>
+                  )}
                 </div>
               )}
             </div>
