@@ -466,16 +466,26 @@ function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, onAddScenario }: { plan: Plan; onAddScenario: () => void }) {
+function PlanCard({ plan, onAddScenario, onDelete }: { plan: Plan; onAddScenario: () => void; onDelete: () => void }) {
   return (
     <div className="w-full rounded-[8px] border border-[#161D20] bg-[#0D1112] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between">
         <span className="text-[#9A999A] text-[12px] font-normal font-['Inter']">{formatDate(plan.createdAt)}</span>
-        <button className="size-[32px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors duration-150 cursor-pointer">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2.667v-2.667L11.333 2.667z" stroke="white" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="size-[32px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors duration-150 cursor-pointer">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2.667v-2.667L11.333 2.667z" stroke="white" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            onClick={onDelete}
+            className="size-[32px] flex items-center justify-center shrink-0 bg-[rgba(236,45,48,0.1)] hover:bg-[rgba(236,45,48,0.2)] border border-[#EC2D30] rounded-[4px] transition-colors duration-150 cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="#EC2D30" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -495,9 +505,13 @@ function PlanCard({ plan, onAddScenario }: { plan: Plan; onAddScenario: () => vo
         <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
       </div>
 
-      <Button variant="primary" size="md" ghost className="w-full mt-2" onClick={onAddScenario}>
+      <button
+        type="button"
+        onClick={onAddScenario}
+        className="w-full flex items-center justify-center px-4 py-[10px] rounded-[4px] mt-2 bg-transparent border border-[#3A70E2] text-[#4BA1FF] text-[16px] font-semibold font-['Inter'] hover:bg-[#3A70E2]/10 transition-colors duration-150 cursor-pointer"
+      >
         Add Scenario
-      </Button>
+      </button>
     </div>
   );
 }
@@ -786,6 +800,7 @@ export interface PlanningPanelProps {
   onDeleteObjective:    (id: string) => void;
   plans:                Plan[];
   onPlanCreated:        (plan: Plan) => void;
+  onDeletePlan:         (planId: string) => void;
   hoveredObjectiveId:   string | null;
   hoveredCardId:        string | null;
   selectedObjectiveId:  string | null;
@@ -804,7 +819,7 @@ export interface PlanningPanelProps {
 export function PlanningPanel({
   isCreating, onStartCreating, onStopCreating, mapClickCoords,
   objectives, onCreateObjective, onDeleteObjective,
-  plans, onPlanCreated,
+  plans, onPlanCreated, onDeletePlan,
   hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
   onCardHover, onCardHoverEnd, onCardClick,
   isAddingScenario, scenarioMode, scenarioActions,
@@ -869,12 +884,21 @@ export function PlanningPanel({
     setToast({ title: "Plan created", description: `"${name}" has been added to ${obj.name}.` });
   }
 
+  function handleDeletePlan(planId: string) {
+    onDeletePlan(planId);
+    setToast({ title: "Plan deleted", description: "The plan has been removed." });
+  }
+
+  function handleSave() {
+    setToast({ title: "Plan saved", description: "Your planning has been saved successfully." });
+  }
+
   const showingPlanForm = planForObj !== null;
 
   return (
     <>
-      <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-y-auto flex flex-col">
-        <div className="p-6 flex flex-col gap-5 flex-1">
+      <div className="w-[390px] shrink-0 bg-[#0A0D0E] border-l border-[#101517] h-full overflow-hidden flex flex-col">
+        <div className="p-6 flex flex-col gap-5 flex-1 overflow-y-auto min-h-0">
 
           {isAddingScenario ? (
             <AddScenarioPanel
@@ -892,44 +916,53 @@ export function PlanningPanel({
             />
           ) : showingPlanForm ? (
             <div className="flex flex-col">
-              {/* Header with back button */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleBack}
-                  className="size-[32px] flex items-center justify-center text-[#9A999A] hover:text-white hover:bg-[#161D20] rounded-[4px] transition-colors cursor-pointer"
+              {/* Header: back + Planning title + Add Plan button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleBack}
+                    className="size-[40px] flex items-center justify-center shrink-0 bg-[#161D20] hover:bg-[#232E33] border border-[#465C66] rounded-[4px] transition-colors duration-150 cursor-pointer"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M10 12L6 8L10 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <h2 className="text-white text-[24px] font-semibold font-['Inter']">Planning</h2>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleCreateAnotherPlan}
+                  iconLeft={
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  }
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <h2 className="text-white text-[24px] font-semibold font-['Inter']">Create Plan</h2>
+                  Add Plan
+                </Button>
               </div>
-              <div className="border-b border-[#161D20] mt-2 mb-6" />
+              <div className="border-b border-[#161D20] mt-4 mb-6" />
 
               <CollapsibleObjectiveInfo objective={planForObj} />
 
               <div className="border-t border-[#161D20] mb-6" />
 
               {submittedPlan ? (
-                <>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full mb-6"
-                    onClick={handleCreateAnotherPlan}
-                  >
-                    Create Another Plan
-                  </Button>
-                  <div className="flex flex-col gap-4">
-                    {plans
-                      .filter((p) => p.objectiveId === planForObj.id)
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                      .map((plan) => (
-                        <PlanCard key={plan.id} plan={plan} onAddScenario={() => onAddScenario(plan)} />
-                      ))
-                    }
-                  </div>
-                </>
+                <div className="flex flex-col gap-4">
+                  {plans
+                    .filter((p) => p.objectiveId === planForObj.id)
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((plan) => (
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        onAddScenario={() => onAddScenario(plan)}
+                        onDelete={() => handleDeletePlan(plan.id)}
+                      />
+                    ))
+                  }
+                </div>
               ) : (
                 <CreatePlanForm onCancel={handleBack} onSubmit={handleSubmitPlan} />
               )}
@@ -988,6 +1021,15 @@ export function PlanningPanel({
           )}
 
         </div>
+
+        {/* Sticky Save footer — visible after at least one plan exists */}
+        {showingPlanForm && submittedPlan && (
+          <div className="shrink-0 px-6 pb-4 pt-3 border-t border-[#161D20]">
+            <Button variant="primary" size="lg" className="w-full" onClick={handleSave}>
+              Save
+            </Button>
+          </div>
+        )}
       </div>
 
       {toast && <Toast data={toast} onClose={() => setToast(null)} />}
