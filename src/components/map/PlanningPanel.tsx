@@ -102,7 +102,10 @@ function StatusTag({ status }: { status: ObjectiveStatus }) {
 function PlanStatusTag({ status }: { status: "draft" | "default" | "recommended" }) {
   if (status === "recommended") {
     return (
-      <span className="text-[#4BA1FF] text-[11px] font-semibold font-['Inter'] border border-[#4BA1FF] rounded-[4px] bg-[rgba(58,112,226,0.15)] px-[8px] py-[2px] whitespace-nowrap shrink-0">
+      <span className="inline-flex items-center gap-[4px] text-[#4BA1FF] text-[11px] font-semibold font-['Inter'] border border-[#4BA1FF] rounded-[4px] bg-[rgba(58,112,226,0.15)] px-[8px] py-[2px] whitespace-nowrap shrink-0">
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor">
+          <path d="M6 1.5l1.237 2.506 2.763.402-2 1.948.472 2.75L6 7.75l-2.472 1.356L4 6.356 2 4.408l2.763-.402L6 1.5z" />
+        </svg>
         Recommended
       </span>
     );
@@ -120,22 +123,6 @@ function IconPerson() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
       <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-    </svg>
-  );
-}
-
-function IconLocation() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
     </svg>
   );
 }
@@ -184,10 +171,6 @@ function formatTimestamp(iso: string): string {
   return `${day}.${month}.${year} ${hh}:${mm}`;
 }
 
-function formatCoord(val: number): string {
-  return val.toFixed(6);
-}
-
 function parseCoords(raw: string): { lat: number; lng: number } {
   const [a, b] = raw.split(",");
   return { lat: parseFloat(a?.trim() ?? "0") || 0, lng: parseFloat(b?.trim() ?? "0") || 0 };
@@ -198,114 +181,126 @@ function parseCoords(raw: string): { lat: number; lng: number } {
 function ObjectiveCard({
   obj,
   displayStatus,
+  plans,
+  savedScenarios,
   onDelete,
   onCreatePlan,
-  objectivePlan,
-  isSelected,
-  isHovered,
-  isHoveredByMarker,
+  onOpenPlanningForPlan,
+  onDeletePlan,
   onHover,
   onHoverEnd,
-  onClick,
 }: {
-  obj:               Objective;
-  displayStatus:     ObjectiveStatus;
-  onDelete:          (id: string) => void;
-  onCreatePlan:      (obj: Objective) => void;
-  objectivePlan:     Plan | undefined;
-  isSelected:        boolean;
-  isHovered:         boolean;
-  isHoveredByMarker: boolean;
-  onHover:           () => void;
-  onHoverEnd:        () => void;
-  onClick:           () => void;
+  obj:                   Objective;
+  displayStatus:         ObjectiveStatus;
+  plans:                 Plan[];
+  savedScenarios:        SavedScenario[];
+  onDelete:              (id: string) => void;
+  onCreatePlan:          (obj: Objective) => void;
+  onOpenPlanningForPlan: (obj: Objective, plan: Plan) => void;
+  onDeletePlan:          (planId: string, planName: string) => void;
+  onHover:               () => void;
+  onHoverEnd:            () => void;
 }) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
-  const isOPS = role === "operations_officer";
-
-  const borderBg = isSelected
-    ? "border-[#3A70E2] bg-[#0D1112]"
-    : isHovered
-      ? "border-[#232E33] bg-[#0D1112]"
-      : isHoveredByMarker
-        ? "border-[#203D7D] bg-transparent"
-        : "border-[#161D20] bg-transparent";
+  const isOPS       = role === "operations_officer";
+  const [isExpanded, setIsExpanded] = useState(false);
+  const objPlans = plans.filter((p) => p.objectiveId === obj.id);
 
   return (
     <div
-      onClick={onClick}
       onMouseEnter={onHover}
       onMouseLeave={onHoverEnd}
-      className={`border rounded-[4px] p-3 flex flex-col gap-2 cursor-pointer transition-all duration-150 ${borderBg}`}
+      className="border rounded-[4px] border-[#161D20] bg-transparent hover:border-[#232E33] transition-colors duration-150 overflow-hidden"
     >
-      <div className="flex items-center justify-between">
-        <span className="text-[#9A999A] text-[12px]">{formatTimestamp(obj.createdAt)}</span>
-        {isCommander && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(obj.id); }}
-            className="text-[#E53535] hover:text-red-400 transition-colors"
-            aria-label="Delete"
-          >
-            <IconTrash />
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <img src="/icons/map/target.svg" alt="objective" className="size-[20px] shrink-0" />
-        <span className="text-white text-[14px] font-semibold">{obj.name}</span>
-        <StatusTag status={displayStatus} />
-      </div>
-
-      <div>
-        <span className="text-[#9A999A] text-[12px]">Description: </span>
-        <span className={`text-white text-[12px] ${isSelected ? "" : "line-clamp-2"}`}>
-          {obj.description}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-1">
-        <span className="text-[#9A999A] text-[12px]">Coordinates:</span>
-        <span className="text-[#9A999A]"><IconLocation /></span>
-        <span className="text-white text-[12px]">{formatCoord(obj.lat)},&nbsp;&nbsp;{formatCoord(obj.lng)}</span>
-      </div>
-
-      {objectivePlan && (
-        <>
-          <div className="border-t border-[#161D20] mt-1" />
-          <div className="flex items-center justify-between">
-            <span className="text-[#9A999A] text-[11px]">Plan:</span>
-            <span className="text-[#9A999A] text-[11px]">{formatTimestamp(objectivePlan.createdAt)}</span>
-          </div>
-          <p className="text-white text-[13px] font-semibold font-['Inter']">{objectivePlan.name}</p>
-          <p className={`text-white text-[12px] font-['Inter'] ${isSelected ? "" : "line-clamp-2"}`}>
-            {objectivePlan.description}
-          </p>
-        </>
-      )}
-
-      {isOPS && (
-        <div className="mt-1 pt-3 border-t border-[#161D20]">
-          {objectivePlan ? (
-            <div className="flex items-center gap-1">
-              <svg className="size-[12px] text-[#76FFAE]" viewBox="0 0 12 12" fill="none">
-                <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span className="text-[#76FFAE] text-[11px] font-['Inter']">Plan added</span>
-            </div>
-          ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              className="w-full"
-              onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
+      {/* Header row — always visible, click toggles expand */}
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer"
+        onClick={() => setIsExpanded((v) => !v)}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-[#9A999A] text-[11px] font-normal font-['Inter'] whitespace-nowrap shrink-0">
+            {formatTimestamp(obj.createdAt)}
+          </span>
+          <img src="/icons/map/target.svg" alt="" className="size-[18px] shrink-0" draggable={false} />
+          <span className="text-white text-[13px] font-semibold font-['Inter'] truncate">
+            {obj.name}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          {isCommander && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(obj.id); }}
+              className="size-[24px] flex items-center justify-center text-[#EC2D30] hover:bg-[#EC2D30]/10 rounded-[4px] transition-colors cursor-pointer"
             >
-              Create Plan
-            </Button>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          <StatusTag status={displayStatus} />
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
+          >
+            <path d="M4 6L8 10L12 6" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="px-3 pb-3 pt-1 flex flex-col gap-3 border-t border-[#161D20]">
+
+          <div>
+            <p className="text-[#9A999A] text-[12px] font-['Inter'] mb-[2px]">Description:</p>
+            <p className="text-white text-[12px] font-['Inter']">{obj.description}</p>
+          </div>
+
+          <div>
+            <p className="text-[#9A999A] text-[12px] font-['Inter'] mb-[2px]">Coordinates:</p>
+            <div className="flex items-center gap-1">
+              <img src="/icons/map/my_location.svg" className="size-[12px] shrink-0" />
+              <span className="text-white text-[12px] font-['Inter']">
+                {obj.lat.toFixed(6)},&nbsp;&nbsp;{obj.lng.toFixed(6)}
+              </span>
+            </div>
+          </div>
+
+          {isOPS && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
+                className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[14px] py-[8px] rounded-[4px] transition-colors cursor-pointer"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                Create Plan
+              </button>
+
+              {objPlans.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {objPlans
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((plan) => (
+                      <PlanSummaryItem
+                        key={plan.id}
+                        plan={plan}
+                        scenarios={savedScenarios.filter((s) => s.planId === plan.id)}
+                        onEdit={() => onOpenPlanningForPlan(obj, plan)}
+                        onDelete={() => onDeletePlan(plan.id, plan.name)}
+                      />
+                    ))
+                  }
+                </div>
+              )}
+            </>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -345,25 +340,21 @@ function ObjectivesSection({
   onDelete,
   onCreateClick,
   onCreatePlan,
-  hoveredObjectiveId,
-  hoveredCardId,
-  selectedObjectiveId,
+  onOpenPlanningForPlan,
+  onDeletePlan,
   onCardHover,
   onCardHoverEnd,
-  onCardClick,
 }: {
-  objectives:          Objective[];
-  plans:               Plan[];
-  savedScenarios:      SavedScenario[];
-  onDelete:            (id: string) => void;
-  onCreateClick:       () => void;
-  onCreatePlan:        (obj: Objective) => void;
-  hoveredObjectiveId:  string | null;
-  hoveredCardId:       string | null;
-  selectedObjectiveId: string | null;
-  onCardHover:         (id: string) => void;
-  onCardHoverEnd:      () => void;
-  onCardClick:         (id: string) => void;
+  objectives:            Objective[];
+  plans:                 Plan[];
+  savedScenarios:        SavedScenario[];
+  onDelete:              (id: string) => void;
+  onCreateClick:         () => void;
+  onCreatePlan:          (obj: Objective) => void;
+  onOpenPlanningForPlan: (obj: Objective, plan: Plan) => void;
+  onDeletePlan:          (planId: string, planName: string) => void;
+  onCardHover:           (id: string) => void;
+  onCardHoverEnd:        () => void;
 }) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -402,15 +393,14 @@ function ObjectivesSection({
               key={obj.id}
               obj={obj}
               displayStatus={getObjectiveStatus(obj, plans, savedScenarios)}
+              plans={plans}
+              savedScenarios={savedScenarios}
               onDelete={onDelete}
               onCreatePlan={onCreatePlan}
-              objectivePlan={plans.find((p) => p.objectiveId === obj.id)}
-              isSelected={selectedObjectiveId === obj.id}
-              isHovered={hoveredCardId === obj.id}
-              isHoveredByMarker={hoveredObjectiveId === obj.id}
+              onOpenPlanningForPlan={onOpenPlanningForPlan}
+              onDeletePlan={onDeletePlan}
               onHover={() => onCardHover(obj.id)}
               onHoverEnd={onCardHoverEnd}
-              onClick={() => onCardClick(obj.id)}
             />
           ))
         )}
@@ -649,6 +639,110 @@ function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelet
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Plan summary item (used inside ObjectiveCard) ────────────────────────────
+
+function PlanSummaryItem({
+  plan, scenarios, onEdit, onDelete,
+}: {
+  plan:      Plan;
+  scenarios: SavedScenario[];
+  onEdit:    () => void;
+  onDelete:  () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const planStatus = getPlanStatus(plan, scenarios);
+
+  return (
+    <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0A0D0E] overflow-hidden hover:border-[#232E33] transition-colors duration-150">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+          <span className="text-[#9A999A] text-[11px] font-normal font-['Inter']">
+            {formatTimestamp(plan.createdAt)}
+          </span>
+          <div className="flex items-center gap-2">
+            <div className="size-[18px] rounded-[3px] shrink-0 bg-[#2D57B0] flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                <path d="M2 4h10M2 7h10M2 10h6" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <span className="text-white text-[13px] font-semibold font-['Inter'] truncate flex-1 min-w-0">
+              {plan.name}
+            </span>
+            <PlanStatusTag status={planStatus} />
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            className="size-[24px] flex items-center justify-center text-[#9A999A] hover:text-white transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2.667v-2.667L11.333 2.667z" stroke="currentColor" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="size-[24px] flex items-center justify-center text-[#EC2D30] hover:bg-[#EC2D30]/10 rounded-[4px] transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            className={`shrink-0 transition-transform duration-200 cursor-pointer ${isExpanded ? "rotate-180" : "rotate-0"}`}
+            onClick={() => setIsExpanded((v) => !v)}
+          >
+            <path d="M4 6l4 4 4-4" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#161D20] pt-2">
+          <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
+          {scenarios.length > 0 && (
+            <div className="flex flex-col gap-1.5 mt-1">
+              {scenarios.map((scenario) => {
+                const moveCount = scenario.actions.filter((a) => a.type === "move").length;
+                const fireCount = scenario.actions.filter((a) => a.type === "fire_mission").length;
+                const colorHex  = getColorHex(scenario.color);
+                return (
+                  <div key={scenario.id} className="flex items-center gap-2 flex-wrap">
+                    <div className="size-[8px] rounded-full shrink-0" style={{ backgroundColor: colorHex }} />
+                    <span className="text-white text-[11px] font-['Inter']">{scenario.name}</span>
+                    {moveCount > 0 && (
+                      <div className="flex items-center gap-[3px]">
+                        <svg width="12" height="9" viewBox="0 0 16 12" fill="none">
+                          <path d="M1 6h6M4 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M8 6h6M11 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span className="text-[#4BA1FF] text-[11px] font-['Inter']">×{moveCount}</span>
+                      </div>
+                    )}
+                    {fireCount > 0 && (
+                      <div className="flex items-center gap-[3px]">
+                        <svg width="10" height="11" viewBox="0 0 20 20" fill="none">
+                          <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
+                        </svg>
+                        <span className="text-[#EC2D30] text-[11px] font-['Inter']">×{fireCount}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1256,8 +1350,7 @@ export function PlanningPanel({
   isCreating, onStartCreating, onStopCreating, mapClickCoords,
   objectives, onCreateObjective, onDeleteObjective,
   plans, onPlanCreated, onDeletePlan,
-  hoveredObjectiveId, hoveredCardId, selectedObjectiveId,
-  onCardHover, onCardHoverEnd, onCardClick,
+  onCardHover, onCardHoverEnd,
   isAddingScenario, scenarioActions,
   onAddScenario, onBackFromScenario, onCreateScenario, onDeleteAction,
   pendingMove, pendingMoveToInput, isToInputValid,
@@ -1306,6 +1399,11 @@ export function PlanningPanel({
     setSubmittedPlan(null);
   }
 
+  function handleOpenPlanningForPlan(obj: Objective, plan: Plan) {
+    setPlanForObj(obj);
+    setSubmittedPlan(plan);
+  }
+
   function handleCreateAnotherPlan() {
     setSubmittedPlan(null);
   }
@@ -1343,6 +1441,7 @@ export function PlanningPanel({
 
   function handleSave() {
     setToast({ title: "Plan saved", description: "Your planning has been saved successfully." });
+    handleBack();
   }
 
   const showingPlanForm = planForObj !== null;
@@ -1475,12 +1574,10 @@ export function PlanningPanel({
                   onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
                   onCreatePlan={handleOpenPlanForm}
-                  hoveredObjectiveId={hoveredObjectiveId}
-                  hoveredCardId={hoveredCardId}
-                  selectedObjectiveId={selectedObjectiveId}
+                  onOpenPlanningForPlan={handleOpenPlanningForPlan}
+                  onDeletePlan={(id, name) => setDeleteTarget({ type: "plan", id, name })}
                   onCardHover={onCardHover}
                   onCardHoverEnd={onCardHoverEnd}
-                  onCardClick={onCardClick}
                 />
               )}
               {activeTab === "Plans" && (
