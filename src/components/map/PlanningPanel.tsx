@@ -45,6 +45,8 @@ export type ScenarioAction =
       id:          string;
       type:        "fire_mission";
       name:        string;
+      lat:         number;
+      lng:         number;
       targetType:  string;
       weaponType:  string;
       batterySheaf: string;
@@ -544,7 +546,12 @@ function formatExecutionTime(scenario: SavedScenario): string {
 
 // ─── Scenario item ────────────────────────────────────────────────────────────
 
-function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelete: () => void }) {
+function ScenarioItem({ scenario, onDelete, isSelected, onSelect }: {
+  scenario:   SavedScenario;
+  onDelete:   () => void;
+  isSelected: boolean;
+  onSelect:   () => void;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const moveCount        = scenario.actions.filter((a) => a.type === "move").length;
@@ -552,11 +559,11 @@ function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelet
   const colorHex         = getColorHex(scenario.color);
 
   return (
-    <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden hover:border-[#232E33] transition-colors duration-150">
+    <div className={`w-full rounded-[4px] border overflow-hidden transition-colors duration-150 ${isSelected ? "border-[#3A70E2] bg-[rgba(58,112,226,0.05)]" : "border-[#161D20] bg-[#0D1112] hover:border-[#232E33]"}`}>
       {/* Header row */}
       <div className="flex items-center justify-between px-3 py-3">
         {/* Left: timestamp on top, color dot + name below */}
-        <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+        <div className="flex flex-col gap-[2px] flex-1 min-w-0 cursor-pointer" onClick={onSelect}>
           <span className="text-[#9A999A] text-[11px] font-normal font-['Inter']">
             {formatTimestamp(scenario.createdAt)}
           </span>
@@ -590,7 +597,7 @@ function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelet
           <svg
             width="16" height="16" viewBox="0 0 16 16" fill="none"
             className={`shrink-0 transition-transform duration-200 cursor-pointer ${isExpanded ? "rotate-180" : "rotate-0"}`}
-            onClick={() => setIsExpanded((v) => !v)}
+            onClick={(e) => { e.stopPropagation(); setIsExpanded((v) => !v); }}
           >
             <path d="M4 6l4 4 4-4" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -761,13 +768,15 @@ function PlanSummaryItem({
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete, onMarkRecommended }: {
+function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete, onMarkRecommended, selectedScenarioId, onScenarioSelect }: {
   plan:               Plan;
   scenarios:          SavedScenario[];
   onAddScenario:      () => void;
   onDeleteScenario:   (id: string) => void;
   onDelete:           () => void;
   onMarkRecommended:  () => void;
+  selectedScenarioId: string | null;
+  onScenarioSelect:   (id: string | null) => void;
 }) {
   const planStatus = getPlanStatus(plan, scenarios);
   return (
@@ -813,6 +822,8 @@ function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete, 
               key={scenario.id}
               scenario={scenario}
               onDelete={() => onDeleteScenario(scenario.id)}
+              isSelected={selectedScenarioId === scenario.id}
+              onSelect={() => onScenarioSelect(selectedScenarioId === scenario.id ? null : scenario.id)}
             />
           ))}
         </div>
@@ -1354,6 +1365,8 @@ export interface PlanningPanelProps {
   savedScenarios:             SavedScenario[];
   onDeleteScenario:           (id: string) => void;
   onMarkRecommended:          (planId: string) => void;
+  selectedScenarioId:         string | null;
+  onScenarioSelect:           (id: string | null) => void;
 }
 
 export function PlanningPanel({
@@ -1367,6 +1380,7 @@ export function PlanningPanel({
   onPendingMoveToInputChange, onPendingMoveToInputBlur, onConfirmMove, onCancelMove,
   pendingFireMission, fireMissionForm, onFireMissionFormChange, onConfirmFireMission, onCancelFireMission,
   savedScenarios, onDeleteScenario, onMarkRecommended,
+  selectedScenarioId, onScenarioSelect,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -1539,6 +1553,8 @@ export function PlanningPanel({
                         }}
                         onDelete={() => setDeleteTarget({ type: "plan", id: plan.id, name: plan.name })}
                         onMarkRecommended={() => onMarkRecommended(plan.id)}
+                        selectedScenarioId={selectedScenarioId}
+                        onScenarioSelect={onScenarioSelect}
                       />
                     ))
                   }

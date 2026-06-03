@@ -467,6 +467,13 @@ export default function MapPage() {
   const [hoveredCardId,       setHoveredCardId]       = useState<string | null>(null);
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string | null>(null);
 
+  // Scenario selection (shows actions on map)
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const selectedScenario = useMemo(
+    () => savedScenarios.find((s) => s.id === selectedScenarioId) ?? null,
+    [selectedScenarioId, savedScenarios],
+  );
+
   function handleObjectiveClick(id: string) {
     setSelectedObjectiveId((prev) => (prev === id ? null : id));
   }
@@ -565,6 +572,7 @@ export default function MapPage() {
   // ── Scenario handlers ──────────────────────────────────────────────────────
 
   function handleAddScenario(plan: Plan) {
+    setSelectedScenarioId(null);
     setIsAddingScenario(true);
     setScenarioForPlan(plan);
     setScenarioMode("move_units");
@@ -783,6 +791,8 @@ export default function MapPage() {
       id:          newMission.id,
       type:        "fire_mission" as const,
       name,
+      lat:         pendingFireMission.lat,
+      lng:         pendingFireMission.lng,
       targetType:  fireMissionForm.targetType,
       weaponType:  fireMissionForm.weaponType,
       batterySheaf: fireMissionForm.batterySheaf,
@@ -987,6 +997,69 @@ export default function MapPage() {
             </Marker>
           )}
 
+          {/* Selected scenario move lines */}
+          {selectedScenario && selectedScenario.actions.some((a) => a.type === "move") && (
+            <Source
+              id="selected-scenario-lines"
+              type="geojson"
+              data={generateMovementLines(
+                selectedScenario.actions.filter(
+                  (a): a is Extract<ScenarioAction, { type: "move" }> => a.type === "move",
+                ),
+              )}
+            >
+              <Layer
+                id="selected-scenario-lines-layer"
+                type="line"
+                paint={{ "line-color": "#76FFAE", "line-width": 2, "line-dasharray": [4, 2] }}
+              />
+            </Source>
+          )}
+
+          {/* Selected scenario ghost (from) markers */}
+          {selectedScenario && selectedScenario.actions
+            .filter((a): a is Extract<ScenarioAction, { type: "move" }> => a.type === "move")
+            .map((a) => {
+              const unit = MOCK_UNITS.find((u) => u.id === a.unitId);
+              if (!unit) return null;
+              return (
+                <Marker key={`sel-ghost-${a.id}`} longitude={a.fromLng} latitude={a.fromLat} anchor="center">
+                  <div style={{ opacity: 0.4, pointerEvents: "none" }}>
+                    <UnitMarkerSVG unitType={unit.unitType} />
+                  </div>
+                </Marker>
+              );
+            })
+          }
+
+          {/* Selected scenario destination (to) markers */}
+          {selectedScenario && selectedScenario.actions
+            .filter((a): a is Extract<ScenarioAction, { type: "move" }> => a.type === "move")
+            .map((a) => {
+              const unit = MOCK_UNITS.find((u) => u.id === a.unitId);
+              if (!unit) return null;
+              return (
+                <Marker key={`sel-dest-${a.id}`} longitude={a.toLng} latitude={a.toLat} anchor="center">
+                  <div style={{ pointerEvents: "none" }}>
+                    <UnitMarkerSVG unitType={unit.unitType} />
+                  </div>
+                </Marker>
+              );
+            })
+          }
+
+          {/* Selected scenario fire mission markers */}
+          {selectedScenario && selectedScenario.actions
+            .filter((a): a is Extract<ScenarioAction, { type: "fire_mission" }> => a.type === "fire_mission")
+            .map((a) => (
+              <Marker key={`sel-fm-${a.id}`} longitude={a.lng} latitude={a.lat} anchor="center">
+                <div style={{ pointerEvents: "none" }}>
+                  <FireMissionTargetSVG batterySheaf={a.batterySheaf} />
+                </div>
+              </Marker>
+            ))
+          }
+
           {/* Unit markers — always visible */}
           {currentUnits.map((unit) => {
             const originalUnit = MOCK_UNITS.find((u) => u.id === unit.id)!;
@@ -1159,6 +1232,8 @@ export default function MapPage() {
         savedScenarios={savedScenarios}
         onDeleteScenario={handleDeleteScenario}
         onMarkRecommended={handleMarkAsRecommended}
+        selectedScenarioId={selectedScenarioId}
+        onScenarioSelect={setSelectedScenarioId}
       />
 
       {/* Finalize Your Scenario dialog */}
