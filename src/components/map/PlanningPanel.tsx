@@ -18,12 +18,12 @@ export interface Objective {
 }
 
 export interface Plan {
-  id:          string;
-  objectiveId: string;
-  name:        string;
-  description: string;
-  createdAt:   string;
-  status:      "DRAFT";
+  id:            string;
+  objectiveId:   string;
+  name:          string;
+  description:   string;
+  createdAt:     string;
+  isRecommended: boolean;
 }
 
 type Tab = "Objectives" | "Plans" | "Scenarios";
@@ -64,6 +64,25 @@ export interface SavedScenario {
   createdAt:   string;
 }
 
+// ─── Plan / Objective status helpers ─────────────────────────────────────────
+
+function getPlanStatus(plan: Plan, scenarios: SavedScenario[]): "draft" | "default" | "recommended" {
+  if (plan.isRecommended) return "recommended";
+  if (scenarios.some((s) => s.planId === plan.id)) return "default";
+  return "draft";
+}
+
+function getObjectiveStatus(
+  objective: Objective,
+  plans: Plan[],
+  savedScenarios: SavedScenario[]
+): ObjectiveStatus {
+  if (objective.status === "ACCEPTED") return "ACCEPTED";
+  const objPlans = plans.filter((p) => p.objectiveId === objective.id);
+  const hasScenario = objPlans.some((plan) => savedScenarios.some((s) => s.planId === plan.id));
+  return hasScenario ? "PLANNED" : "REQUESTED";
+}
+
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<ObjectiveStatus, string> = {
@@ -76,6 +95,21 @@ function StatusTag({ status }: { status: ObjectiveStatus }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[10px] font-semibold tracking-wide ${STATUS_STYLES[status]}`}>
       {status}
+    </span>
+  );
+}
+
+function PlanStatusTag({ status }: { status: "draft" | "default" | "recommended" }) {
+  if (status === "recommended") {
+    return (
+      <span className="text-[#4BA1FF] text-[11px] font-semibold font-['Inter'] border border-[#4BA1FF] rounded-[4px] bg-[rgba(58,112,226,0.15)] px-[8px] py-[2px] whitespace-nowrap shrink-0">
+        Recommended
+      </span>
+    );
+  }
+  return (
+    <span className="text-[#9A999A] text-[11px] font-normal font-['Inter'] border border-[#555455] rounded-[4px] px-[8px] py-[2px] whitespace-nowrap shrink-0">
+      {status === "draft" ? "Draft" : "Default"}
     </span>
   );
 }
@@ -163,6 +197,7 @@ function parseCoords(raw: string): { lat: number; lng: number } {
 
 function ObjectiveCard({
   obj,
+  displayStatus,
   onDelete,
   onCreatePlan,
   objectivePlan,
@@ -174,6 +209,7 @@ function ObjectiveCard({
   onClick,
 }: {
   obj:               Objective;
+  displayStatus:     ObjectiveStatus;
   onDelete:          (id: string) => void;
   onCreatePlan:      (obj: Objective) => void;
   objectivePlan:     Plan | undefined;
@@ -219,7 +255,7 @@ function ObjectiveCard({
       <div className="flex items-center gap-2 flex-wrap">
         <img src="/icons/map/target.svg" alt="objective" className="size-[20px] shrink-0" />
         <span className="text-white text-[14px] font-semibold">{obj.name}</span>
-        <StatusTag status={obj.status} />
+        <StatusTag status={displayStatus} />
       </div>
 
       <div>
@@ -305,6 +341,7 @@ function FilterSelect({ value, onChange }: { value: FilterValue; onChange: (v: F
 function ObjectivesSection({
   objectives,
   plans,
+  savedScenarios,
   onDelete,
   onCreateClick,
   onCreatePlan,
@@ -317,6 +354,7 @@ function ObjectivesSection({
 }: {
   objectives:          Objective[];
   plans:               Plan[];
+  savedScenarios:      SavedScenario[];
   onDelete:            (id: string) => void;
   onCreateClick:       () => void;
   onCreatePlan:        (obj: Objective) => void;
@@ -334,7 +372,8 @@ function ObjectivesSection({
 
   const visible = objectives.filter((o) => {
     if (filter === "All") return true;
-    return o.status === filter.toUpperCase();
+    const status = getObjectiveStatus(o, plans, savedScenarios);
+    return status === filter.toUpperCase();
   });
 
   return (
@@ -362,6 +401,7 @@ function ObjectivesSection({
             <ObjectiveCard
               key={obj.id}
               obj={obj}
+              displayStatus={getObjectiveStatus(obj, plans, savedScenarios)}
               onDelete={onDelete}
               onCreatePlan={onCreatePlan}
               objectivePlan={plans.find((p) => p.objectiveId === obj.id)}
@@ -412,8 +452,17 @@ function formatDate(isoString: string): string {
   return `${dd}.${mm}.${yyyy}  ${hh}:${min}`;
 }
 
-function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
+function CollapsibleObjectiveInfo({
+  objective,
+  plans,
+  savedScenarios,
+}: {
+  objective:      Objective;
+  plans:          Plan[];
+  savedScenarios: SavedScenario[];
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const displayStatus = getObjectiveStatus(objective, plans, savedScenarios);
 
   return (
     <div
@@ -436,9 +485,7 @@ function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
 
         {/* Right: status tag + chevron */}
         <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-[#FFC62B] text-[10px] font-semibold font-['Inter'] whitespace-nowrap border border-[#FFC62B] rounded-[4px] px-[6px] py-[2px] bg-[rgba(255,198,43,0.2)]">
-            {objective.status}
-          </span>
+          <StatusTag status={displayStatus} />
           <svg
             width="16" height="16" viewBox="0 0 16 16" fill="none"
             className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
@@ -610,14 +657,15 @@ function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelet
 
 // ─── Plan card ────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete }: {
-  plan:             Plan;
-  scenarios:        SavedScenario[];
-  onAddScenario:    () => void;
-  onDeleteScenario: (id: string) => void;
-  onDelete:         () => void;
+function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete, onMarkRecommended }: {
+  plan:               Plan;
+  scenarios:          SavedScenario[];
+  onAddScenario:      () => void;
+  onDeleteScenario:   (id: string) => void;
+  onDelete:           () => void;
+  onMarkRecommended:  () => void;
 }) {
-  const [isRecommended, setIsRecommended] = useState(false);
+  const planStatus = getPlanStatus(plan, scenarios);
   return (
     <div className="w-full rounded-[8px] border border-[#161D20] bg-[#0D1112] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between">
@@ -646,9 +694,7 @@ function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete }
           </svg>
         </div>
         <span className="text-white text-[14px] font-semibold font-['Inter'] flex-1 min-w-0 truncate">{plan.name}</span>
-        <span className={`text-[11px] font-normal font-['Inter'] border rounded-[4px] px-[8px] py-[2px] whitespace-nowrap shrink-0 ${isRecommended ? "text-[#0C9D61] border-[#0C9D61]" : "text-[#9A999A] border-[#555455]"}`}>
-          {isRecommended ? "Default" : "Draft"}
-        </span>
+        <PlanStatusTag status={planStatus} />
       </div>
 
       <div>
@@ -678,10 +724,10 @@ function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete }
 
       <button
         type="button"
-        onClick={() => setIsRecommended((v) => !v)}
-        className="w-full text-center text-[#9A999A] text-[13px] font-normal font-['Inter'] hover:text-white transition-colors cursor-pointer py-1"
+        onClick={onMarkRecommended}
+        className="w-full text-center text-[#9A999A] text-[14px] font-normal font-['Inter'] hover:text-white transition-colors cursor-pointer py-2"
       >
-        {isRecommended ? "Remove from Recommended" : "Mark as Recommended"}
+        {plan.isRecommended ? "Unmark as Recommended" : "Mark as Recommended"}
       </button>
     </div>
   );
@@ -1203,6 +1249,7 @@ export interface PlanningPanelProps {
   onCancelFireMission:        () => void;
   savedScenarios:             SavedScenario[];
   onDeleteScenario:           (id: string) => void;
+  onMarkRecommended:          (planId: string) => void;
 }
 
 export function PlanningPanel({
@@ -1216,7 +1263,7 @@ export function PlanningPanel({
   pendingMove, pendingMoveToInput, isToInputValid,
   onPendingMoveToInputChange, onPendingMoveToInputBlur, onConfirmMove, onCancelMove,
   pendingFireMission, fireMissionForm, onFireMissionFormChange, onConfirmFireMission, onCancelFireMission,
-  savedScenarios, onDeleteScenario,
+  savedScenarios, onDeleteScenario, onMarkRecommended,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -1271,7 +1318,7 @@ export function PlanningPanel({
       name,
       description,
       createdAt:   new Date().toISOString(),
-      status:      "DRAFT",
+      isRecommended: false,
     };
     onPlanCreated(newPlan);
     setSubmittedPlan(newPlan);
@@ -1362,7 +1409,7 @@ export function PlanningPanel({
               </div>
               <div className="border-b border-[#161D20] mt-4 mb-6" />
 
-              <CollapsibleObjectiveInfo objective={planForObj} />
+              <CollapsibleObjectiveInfo objective={planForObj} plans={plans} savedScenarios={savedScenarios} />
 
               <div className="border-t border-[#161D20] mb-6" />
 
@@ -1382,6 +1429,7 @@ export function PlanningPanel({
                           setDeleteTarget({ type: "scenario", id, name: s?.name ?? "Scenario" });
                         }}
                         onDelete={() => setDeleteTarget({ type: "plan", id: plan.id, name: plan.name })}
+                        onMarkRecommended={() => onMarkRecommended(plan.id)}
                       />
                     ))
                   }
@@ -1423,6 +1471,7 @@ export function PlanningPanel({
                 <ObjectivesSection
                   objectives={objectives}
                   plans={plans}
+                  savedScenarios={savedScenarios}
                   onDelete={onDeleteObjective}
                   onCreateClick={onStartCreating}
                   onCreatePlan={handleOpenPlanForm}

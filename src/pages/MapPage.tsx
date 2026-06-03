@@ -887,6 +887,19 @@ export default function MapPage() {
 
   void scenarioForPlan;
 
+  function handleMarkAsRecommended(planId: string) {
+    setPlans((prev) => {
+      const targetPlan = prev.find((p) => p.id === planId);
+      if (!targetPlan) return prev;
+      const objectiveId = targetPlan.objectiveId;
+      return prev.map((p) => {
+        if (p.objectiveId !== objectiveId) return p;
+        if (p.id !== planId) return { ...p, isRecommended: false };
+        return { ...p, isRecommended: !p.isRecommended };
+      });
+    });
+  }
+
   function handleDeleteScenario(id: string) {
     setSavedScenarios((prev) => prev.filter((s) => s.id !== id));
   }
@@ -1145,6 +1158,7 @@ export default function MapPage() {
         onCancelFireMission={handleCancelFireMission}
         savedScenarios={savedScenarios}
         onDeleteScenario={handleDeleteScenario}
+        onMarkRecommended={handleMarkAsRecommended}
       />
 
       {/* Finalize Your Scenario dialog */}
