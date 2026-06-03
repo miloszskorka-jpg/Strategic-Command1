@@ -208,24 +208,23 @@ function ObjectiveCard({
   const objPlans = plans.filter((p) => p.objectiveId === obj.id);
 
   return (
-    <div
-      onMouseEnter={onHover}
-      onMouseLeave={onHoverEnd}
-      className="border rounded-[4px] border-[#161D20] bg-transparent hover:border-[#232E33] transition-colors duration-150 overflow-hidden"
-    >
-      {/* Header row — always visible, click toggles expand */}
+    <div onMouseEnter={onHover} onMouseLeave={onHoverEnd}>
+      {/* Header — click toggles expand */}
       <div
-        className="flex items-center justify-between p-3 cursor-pointer"
+        className="flex items-center justify-between py-3 cursor-pointer"
         onClick={() => setIsExpanded((v) => !v)}
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-[#9A999A] text-[11px] font-normal font-['Inter'] whitespace-nowrap shrink-0">
+        <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+          <span className="text-[#9A999A] text-[12px] font-normal font-['Inter']">
             {formatTimestamp(obj.createdAt)}
           </span>
-          <img src="/icons/map/target.svg" alt="" className="size-[18px] shrink-0" draggable={false} />
-          <span className="text-white text-[13px] font-semibold font-['Inter'] truncate">
-            {obj.name}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <img src="/icons/map/target.svg" alt="" className="size-[20px] shrink-0" draggable={false} />
+            <span className="text-white text-[14px] font-semibold font-['Inter'] truncate">
+              {obj.name}
+            </span>
+            <StatusTag status={displayStatus} />
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           {isCommander && (
@@ -239,7 +238,6 @@ function ObjectiveCard({
               </svg>
             </button>
           )}
-          <StatusTag status={displayStatus} />
           <svg
             width="16" height="16" viewBox="0 0 16 16" fill="none"
             className={`shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : "rotate-0"}`}
@@ -249,13 +247,16 @@ function ObjectiveCard({
         </div>
       </div>
 
+      {/* Separator — always visible */}
+      <div className="border-b border-[#161D20]" />
+
       {/* Expanded content */}
       <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className="px-3 pb-3 pt-1 flex flex-col gap-3 border-t border-[#161D20]">
+        <div className="pt-3 pb-2 flex flex-col gap-3">
 
           <div>
             <p className="text-[#9A999A] text-[12px] font-['Inter'] mb-[2px]">Description:</p>
-            <p className="text-white text-[12px] font-['Inter']">{obj.description}</p>
+            <p className="text-white text-[12px] font-['Inter'] line-clamp-2">{obj.description}</p>
           </div>
 
           <div>
@@ -273,16 +274,17 @@ function ObjectiveCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onCreatePlan(obj); }}
-                className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[14px] py-[8px] rounded-[4px] transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 bg-[#0C9D61] hover:bg-[#097A4B] text-white font-semibold text-[16px] py-[10px] rounded-[4px] transition-colors cursor-pointer"
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
                 Create Plan
               </button>
 
               {objPlans.length > 0 && (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-0">
+                  <p className="text-[#9A999A] text-[12px] font-['Inter'] mb-2">Plans:</p>
                   {objPlans
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .map((plan) => (
@@ -369,8 +371,7 @@ function ObjectivesSection({
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between">
-        <span className="text-white text-[16px] font-semibold">Objectives</span>
+      <div className="flex items-center justify-end">
         <FilterSelect value={filter} onChange={setFilter} />
       </div>
 
@@ -384,7 +385,7 @@ function ObjectivesSection({
         </button>
       )}
 
-      <div className={`flex flex-col gap-3 ${isCommander ? "" : "mt-4"}`}>
+      <div className={`flex flex-col ${isCommander ? "" : "mt-4"}`}>
         {visible.length === 0 ? (
           <p className="text-[#9A999A] text-[13px] text-center py-6">No objectives match this filter.</p>
         ) : (
@@ -712,30 +713,29 @@ function PlanSummaryItem({
         <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#161D20] pt-2">
           <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
           {scenarios.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-1">
-              {scenarios.map((scenario) => {
+            <div>
+              <p className="text-[#9A999A] text-[12px] font-['Inter'] mb-1">Scenarios:</p>
+              {scenarios.map((scenario, idx) => {
                 const moveCount = scenario.actions.filter((a) => a.type === "move").length;
                 const fireCount = scenario.actions.filter((a) => a.type === "fire_mission").length;
-                const colorHex  = getColorHex(scenario.color);
                 return (
-                  <div key={scenario.id} className="flex items-center gap-2 flex-wrap">
-                    <div className="size-[8px] rounded-full shrink-0" style={{ backgroundColor: colorHex }} />
-                    <span className="text-white text-[11px] font-['Inter']">{scenario.name}</span>
+                  <div key={scenario.id} className="flex items-center gap-2 mb-1">
+                    <span className="text-[#9A999A] text-[11px] font-['Inter']">{idx + 1}.</span>
                     {moveCount > 0 && (
-                      <div className="flex items-center gap-[3px]">
+                      <div className="flex items-center gap-1">
                         <svg width="12" height="9" viewBox="0 0 16 12" fill="none">
                           <path d="M1 6h6M4 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           <path d="M8 6h6M11 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                        <span className="text-[#4BA1FF] text-[11px] font-['Inter']">×{moveCount}</span>
+                        <span className="text-white text-[11px] font-['Inter']">x{moveCount}</span>
                       </div>
                     )}
                     {fireCount > 0 && (
-                      <div className="flex items-center gap-[3px]">
+                      <div className="flex items-center gap-1">
                         <svg width="10" height="11" viewBox="0 0 20 20" fill="none">
                           <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
                         </svg>
-                        <span className="text-[#EC2D30] text-[11px] font-['Inter']">×{fireCount}</span>
+                        <span className="text-white text-[11px] font-['Inter']">x{fireCount}</span>
                       </div>
                     )}
                   </div>
