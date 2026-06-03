@@ -3,7 +3,7 @@ import Map, { Marker, Source, Layer, type MapRef } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useNavigate } from "react-router-dom";
 import { Navbar, NavItemConfig } from "../components/Navbar";
-import { PlanningPanel, type Objective, type Plan, type ScenarioMode, type ScenarioAction } from "../components/map/PlanningPanel";
+import { PlanningPanel, type Objective, type Plan, type ScenarioMode, type ScenarioAction, type SavedScenario } from "../components/map/PlanningPanel";
 import { MapControls } from "../components/map/MapControls";
 import { useUserRole } from "../context/UserRoleContext";
 import { Button } from "../components/Button";
@@ -46,17 +46,6 @@ interface ConfirmedFireMission {
   fireType:    string;
 }
 
-interface SavedScenario {
-  id:          string;
-  name:        string;
-  color:       string;
-  execMode:    "standalone" | "dependent";
-  date:        string;
-  time:        string;
-  dependsOnId: string | null;
-  actions:     ScenarioAction[];
-  createdAt:   string;
-}
 
 const MOCK_UNITS: MapUnit[] = [
   { id: "bat-1",      name: "BAT_1",      lat: 47.5680, lng: 34.3960, unitType: "Battalion",           parentId: null                       },
@@ -791,6 +780,7 @@ export default function MapPage() {
 
     const newScenario: SavedScenario = {
       id:          Date.now().toString(),
+      planId:      scenarioForPlan?.id ?? "",
       name:        finalizeForm.name,
       color:       finalizeForm.color,
       execMode:    finalizeForm.execMode,
@@ -837,6 +827,10 @@ export default function MapPage() {
   }, [mapToast]);
 
   void scenarioForPlan;
+
+  function handleDeleteScenario(id: string) {
+    setSavedScenarios((prev) => prev.filter((s) => s.id !== id));
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-secondary-900 font-sans">
@@ -1080,6 +1074,8 @@ export default function MapPage() {
         onFireMissionFormChange={handleFireMissionFormChange}
         onConfirmFireMission={handleConfirmFireMission}
         onCancelFireMission={handleCancelFireMission}
+        savedScenarios={savedScenarios}
+        onDeleteScenario={handleDeleteScenario}
       />
 
       {/* Finalize Your Scenario dialog */}

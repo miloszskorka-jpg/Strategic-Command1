@@ -51,6 +51,19 @@ export type ScenarioAction =
       fireType:    string;
     };
 
+export interface SavedScenario {
+  id:          string;
+  planId:      string;
+  name:        string;
+  color:       string;
+  execMode:    "standalone" | "dependent";
+  date:        string;
+  time:        string;
+  dependsOnId: string | null;
+  actions:     ScenarioAction[];
+  createdAt:   string;
+}
+
 // ─── Status tag ───────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<ObjectiveStatus, string> = {
@@ -464,9 +477,147 @@ function CollapsibleObjectiveInfo({ objective }: { objective: Objective }) {
   );
 }
 
+// ─── Scenario helpers ─────────────────────────────────────────────────────────
+
+const COLOR_HEX: Record<string, string> = {
+  blue:   "#3A70E2",
+  green:  "#0C9D61",
+  yellow: "#FFC62B",
+  red:    "#EC2D30",
+  purple: "#5900D9",
+  blue2:  "#4BA1FF",
+  gray:   "#9A999A",
+};
+
+function getColorHex(colorValue: string): string {
+  return COLOR_HEX[colorValue] ?? "#9A999A";
+}
+
+function formatExecutionTime(scenario: SavedScenario): string {
+  if (!scenario.date) return "—";
+  const [year, month, day] = scenario.date.split("-");
+  return `${day}.${month}.${year}${scenario.time ? " " + scenario.time : ""}`;
+}
+
+// ─── Scenario item ────────────────────────────────────────────────────────────
+
+function ScenarioItem({ scenario, onDelete }: { scenario: SavedScenario; onDelete: () => void }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const moveCount        = scenario.actions.filter((a) => a.type === "move").length;
+  const fireMissionCount = scenario.actions.filter((a) => a.type === "fire_mission").length;
+  const colorHex         = getColorHex(scenario.color);
+
+  return (
+    <div className="w-full rounded-[4px] border border-[#161D20] bg-[#0D1112] overflow-hidden hover:border-[#232E33] transition-colors duration-150">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-3 py-3">
+        {/* Left: timestamp on top, color dot + name below */}
+        <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+          <span className="text-[#9A999A] text-[11px] font-normal font-['Inter']">
+            {formatTimestamp(scenario.createdAt)}
+          </span>
+          <div className="flex items-center gap-2">
+            <div className="size-[14px] rounded-full shrink-0" style={{ backgroundColor: colorHex }} />
+            <span className="text-white text-[14px] font-semibold font-['Inter'] truncate">
+              {scenario.name}
+            </span>
+          </div>
+        </div>
+
+        {/* Right: edit + delete + chevron */}
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <button
+            type="button"
+            className="size-[24px] flex items-center justify-center text-[#9A999A] hover:text-white transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M11.333 2.667a1.886 1.886 0 0 1 2.667 2.666L5.333 14H2.667v-2.667L11.333 2.667z" stroke="currentColor" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="size-[24px] flex items-center justify-center text-[#EC2D30] hover:bg-[#EC2D30]/10 rounded-[4px] transition-colors cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 10h8l1-10" stroke="currentColor" strokeWidth="1.333" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <svg
+            width="16" height="16" viewBox="0 0 16 16" fill="none"
+            className={`shrink-0 transition-transform duration-200 cursor-pointer ${isExpanded ? "rotate-180" : "rotate-0"}`}
+            onClick={() => setIsExpanded((v) => !v)}
+          >
+            <path d="M4 6l4 4 4-4" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="px-3 pb-3 flex flex-col gap-3">
+
+          {/* Execution Time */}
+          <div className="flex items-start gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-[1px]">
+              <rect x="1" y="3" width="14" height="12" rx="2" stroke="#9A999A" strokeWidth="1.5"/>
+              <path d="M1 7h14" stroke="#9A999A" strokeWidth="1.5"/>
+              <path d="M5 1v4M11 1v4" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-[1px]">Execution Time:</p>
+              <p className="text-white text-[12px] font-normal font-['Inter']">{formatExecutionTime(scenario)}</p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-start gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-[1px]">
+              <path d="M9 1L2 9h6l-1 6 7-8H8l1-6z" stroke="#9A999A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <div>
+              <p className="text-[#9A999A] text-[12px] font-normal font-['Inter'] mb-1">Actions</p>
+              <div className="flex items-center gap-3">
+                {moveCount > 0 && (
+                  <div className="flex items-center gap-1">
+                    <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+                      <path d="M1 6h6M4 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M8 6h6M11 1l5 5-5 5" stroke="#4BA1FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="text-white text-[12px] font-normal font-['Inter']">x{moveCount}</span>
+                  </div>
+                )}
+                {fireMissionCount > 0 && (
+                  <div className="flex items-center gap-1">
+                    <svg width="12" height="14" viewBox="0 0 20 20" fill="none">
+                      <path d="M10 2C10 2 7 6 7 9C7 10.657 8.343 12 10 12C11.657 12 13 10.657 13 9C13 7 11 4 11 4C11 4 13 5 14 7C15 9 14 11 14 11C15.5 9.5 16 7 16 5C16 5 18 8 18 12C18 15.314 14.418 18 10 18C5.582 18 2 15.314 2 12C2 7 7 2 10 2Z" fill="#EC2D30" />
+                    </svg>
+                    <span className="text-white text-[12px] font-normal font-['Inter']">x{fireMissionCount}</span>
+                  </div>
+                )}
+                {moveCount === 0 && fireMissionCount === 0 && (
+                  <span className="text-[#9A999A] text-[12px] font-['Inter']">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Plan card ────────────────────────────────────────────────────────────────
 
-function PlanCard({ plan, onAddScenario, onDelete }: { plan: Plan; onAddScenario: () => void; onDelete: () => void }) {
+function PlanCard({ plan, scenarios, onAddScenario, onDeleteScenario, onDelete }: {
+  plan:             Plan;
+  scenarios:        SavedScenario[];
+  onAddScenario:    () => void;
+  onDeleteScenario: (id: string) => void;
+  onDelete:         () => void;
+}) {
+  const [isRecommended, setIsRecommended] = useState(false);
   return (
     <div className="w-full rounded-[8px] border border-[#161D20] bg-[#0D1112] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between">
@@ -495,8 +646,8 @@ function PlanCard({ plan, onAddScenario, onDelete }: { plan: Plan; onAddScenario
           </svg>
         </div>
         <span className="text-white text-[14px] font-semibold font-['Inter'] flex-1 min-w-0 truncate">{plan.name}</span>
-        <span className="text-[#9A999A] text-[11px] font-normal font-['Inter'] border border-[#555455] rounded-[4px] px-[8px] py-[2px] whitespace-nowrap shrink-0">
-          Draft
+        <span className={`text-[11px] font-normal font-['Inter'] border rounded-[4px] px-[8px] py-[2px] whitespace-nowrap shrink-0 ${isRecommended ? "text-[#0C9D61] border-[#0C9D61]" : "text-[#9A999A] border-[#555455]"}`}>
+          {isRecommended ? "Default" : "Draft"}
         </span>
       </div>
 
@@ -505,12 +656,32 @@ function PlanCard({ plan, onAddScenario, onDelete }: { plan: Plan; onAddScenario
         <p className="text-white text-[12px] font-normal font-['Inter']">{plan.description}</p>
       </div>
 
+      {scenarios.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {scenarios.map((scenario) => (
+            <ScenarioItem
+              key={scenario.id}
+              scenario={scenario}
+              onDelete={() => onDeleteScenario(scenario.id)}
+            />
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onAddScenario}
-        className="w-full flex items-center justify-center px-4 py-[10px] rounded-[4px] mt-2 bg-transparent border border-[#3A70E2] text-[#4BA1FF] text-[16px] font-semibold font-['Inter'] hover:bg-[#3A70E2]/10 transition-colors duration-150 cursor-pointer"
+        className="w-full flex items-center justify-center px-4 py-[10px] rounded-[4px] bg-transparent border border-[#3A70E2] text-[#4BA1FF] text-[16px] font-semibold font-['Inter'] hover:bg-[#3A70E2]/10 transition-colors duration-150 cursor-pointer"
       >
         Add Scenario
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setIsRecommended((v) => !v)}
+        className="w-full text-center text-[#9A999A] text-[13px] font-normal font-['Inter'] hover:text-white transition-colors cursor-pointer py-1"
+      >
+        {isRecommended ? "Remove from Recommended" : "Mark as Recommended"}
       </button>
     </div>
   );
@@ -977,6 +1148,8 @@ export interface PlanningPanelProps {
   onFireMissionFormChange:    (updates: Partial<FireMissionFormData>) => void;
   onConfirmFireMission:       () => void;
   onCancelFireMission:        () => void;
+  savedScenarios:             SavedScenario[];
+  onDeleteScenario:           (id: string) => void;
 }
 
 export function PlanningPanel({
@@ -990,6 +1163,7 @@ export function PlanningPanel({
   pendingMove, pendingMoveToInput, isToInputValid,
   onPendingMoveToInputChange, onPendingMoveToInputBlur, onConfirmMove, onCancelMove,
   pendingFireMission, fireMissionForm, onFireMissionFormChange, onConfirmFireMission, onCancelFireMission,
+  savedScenarios, onDeleteScenario,
 }: PlanningPanelProps) {
   const { role } = useUserRole();
   const isCommander = role === "commander";
@@ -1136,7 +1310,9 @@ export function PlanningPanel({
                       <PlanCard
                         key={plan.id}
                         plan={plan}
+                        scenarios={savedScenarios.filter((s) => s.planId === plan.id)}
                         onAddScenario={() => onAddScenario(plan)}
+                        onDeleteScenario={onDeleteScenario}
                         onDelete={() => handleDeletePlan(plan.id)}
                       />
                     ))
