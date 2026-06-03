@@ -1109,6 +1109,59 @@ function AddScenarioPanel({
   );
 }
 
+// ─── Delete confirm modal ─────────────────────────────────────────────────────
+
+interface DeleteTarget {
+  type: "plan" | "scenario";
+  id:   string;
+  name: string;
+}
+
+function DeleteConfirmModal({
+  isOpen, title, description, onCancel, onConfirm,
+}: {
+  isOpen:      boolean;
+  title:       string;
+  description: string;
+  onCancel:    () => void;
+  onConfirm:   () => void;
+}) {
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onCancel(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, onCancel]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/75" onClick={onCancel} />
+      <div className="relative z-10 bg-[#0A0D0E] border border-[#101517] rounded-[8px] p-6 w-[318px] flex flex-col items-center gap-9 shadow-[0px_8px_32px_rgba(0,0,0,0.6)]">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <path d="M6 9h24" stroke="#EC2D30" strokeWidth="2" strokeLinecap="round" />
+          <path d="M15 9V6h6v3" stroke="#EC2D30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 9l2 21h16l2-21" stroke="#EC2D30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M14 15v9M18 15v9M22 15v9" stroke="#EC2D30" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h3 className="text-white text-[24px] font-semibold font-['Inter'] leading-[36px]">{title}</h3>
+          <p className="text-white text-[14px] font-normal font-['Inter'] leading-[20px] w-[270px]">{description}</p>
+        </div>
+        <div className="flex items-center gap-6 w-full">
+          <button type="button" onClick={onCancel} className="flex-1 flex items-center justify-center px-4 py-2 rounded-[4px] bg-[#161D20] hover:bg-[#232E33] text-white text-[16px] font-semibold font-['Inter'] transition-colors cursor-pointer">
+            Cancel
+          </button>
+          <button type="button" onClick={onConfirm} className="flex-1 flex items-center justify-center px-4 py-2 rounded-[4px] bg-[#EC2D30] hover:bg-[#F64C4C] text-white text-[16px] font-semibold font-['Inter'] transition-colors cursor-pointer">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 const TABS: Tab[] = ["Objectives", "Plans", "Scenarios"];
@@ -1172,6 +1225,7 @@ export function PlanningPanel({
   const [toast,          setToast]          = useState<ToastData | null>(null);
   const [planForObj,     setPlanForObj]     = useState<Objective | null>(null);
   const [submittedPlan,  setSubmittedPlan]  = useState<Plan | null>(null);
+  const [deleteTarget,   setDeleteTarget]   = useState<DeleteTarget | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -1224,9 +1278,20 @@ export function PlanningPanel({
     setToast({ title: "Plan created", description: `"${name}" has been added to ${obj.name}.` });
   }
 
-  function handleDeletePlan(planId: string) {
-    onDeletePlan(planId);
-    setToast({ title: "Plan deleted", description: "The plan has been removed." });
+  function handleCancelDelete() {
+    setDeleteTarget(null);
+  }
+
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === "plan") {
+      onDeletePlan(deleteTarget.id);
+      setToast({ title: "Plan deleted", description: `"${deleteTarget.name}" has been removed.` });
+    } else {
+      onDeleteScenario(deleteTarget.id);
+      setToast({ title: "Scenario deleted", description: `"${deleteTarget.name}" has been removed.` });
+    }
+    setDeleteTarget(null);
   }
 
   function handleSave() {
@@ -1312,8 +1377,11 @@ export function PlanningPanel({
                         plan={plan}
                         scenarios={savedScenarios.filter((s) => s.planId === plan.id)}
                         onAddScenario={() => onAddScenario(plan)}
-                        onDeleteScenario={onDeleteScenario}
-                        onDelete={() => handleDeletePlan(plan.id)}
+                        onDeleteScenario={(id) => {
+                          const s = savedScenarios.find((sc) => sc.id === id);
+                          setDeleteTarget({ type: "scenario", id, name: s?.name ?? "Scenario" });
+                        }}
+                        onDelete={() => setDeleteTarget({ type: "plan", id: plan.id, name: plan.name })}
                       />
                     ))
                   }
@@ -1390,6 +1458,18 @@ export function PlanningPanel({
       </div>
 
       {toast && <Toast data={toast} onClose={() => setToast(null)} />}
+
+      <DeleteConfirmModal
+        isOpen={deleteTarget !== null}
+        title={deleteTarget?.type === "plan" ? "Delete Plan?" : "Delete Scenario?"}
+        description={
+          deleteTarget?.type === "plan"
+            ? "Are you sure you want to delete this plan?"
+            : "Are you sure you want to delete this scenario?"
+        }
+        onCancel={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+      />
     </>
   );
 }

@@ -1115,7 +1115,10 @@ export default function MapPage() {
         onDeleteObjective={(id) => setObjectives((prev) => prev.filter((o) => o.id !== id))}
         plans={plans}
         onPlanCreated={(plan) => setPlans((prev) => [...prev, plan])}
-        onDeletePlan={(planId) => setPlans((prev) => prev.filter((p) => p.id !== planId))}
+        onDeletePlan={(planId) => {
+          setPlans((prev) => prev.filter((p) => p.id !== planId));
+          setSavedScenarios((prev) => prev.filter((s) => s.planId !== planId));
+        }}
         hoveredObjectiveId={hoveredObjectiveId}
         hoveredCardId={hoveredCardId}
         selectedObjectiveId={selectedObjectiveId}
