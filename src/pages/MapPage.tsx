@@ -255,6 +255,65 @@ const INITIAL_OBJECTIVES: Objective[] = [
   },
 ];
 
+// ─── Fire mission target SVG ──────────────────────────────────────────────────
+
+function FireMissionTargetSVG({ batterySheaf }: { batterySheaf: string }) {
+  const STROKE    = "#EC2D30";
+  const FILL      = "rgba(236,45,48,0.25)";
+  const FILL_DARK = "rgba(236,45,48,0.35)";
+
+  function Crosshair({ cx, cy, r = 22 }: { cx: number; cy: number; r?: number }) {
+    return (
+      <>
+        <line x1={cx} y1={cy - r + 4} x2={cx} y2={cy - 6}     stroke={STROKE} strokeWidth="2" strokeLinecap="round" />
+        <line x1={cx} y1={cy + 6}     x2={cx} y2={cy + r - 4} stroke={STROKE} strokeWidth="2" strokeLinecap="round" />
+        <line x1={cx - r + 4} y1={cy} x2={cx - 6}     y2={cy} stroke={STROKE} strokeWidth="2" strokeLinecap="round" />
+        <line x1={cx + 6}     y1={cy} x2={cx + r - 4} y2={cy} stroke={STROKE} strokeWidth="2" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={3} fill={STROKE} />
+      </>
+    );
+  }
+
+  if (batterySheaf === "linear") {
+    return (
+      <svg width="80" height="180" viewBox="0 0 80 180" style={{ display: "block", pointerEvents: "none" }}>
+        <circle cx="40" cy="40"  r="34" fill={FILL_DARK} stroke={STROKE} strokeWidth="2" strokeDasharray="6 3" />
+        <circle cx="40" cy="90"  r="36" fill={FILL}      stroke={STROKE} strokeWidth="2" />
+        <Crosshair cx={40} cy={90} r={36} />
+        <circle cx="40" cy="140" r="34" fill={FILL_DARK} stroke={STROKE} strokeWidth="2" strokeDasharray="6 3" />
+      </svg>
+    );
+  }
+
+  if (batterySheaf === "circular") {
+    return (
+      <svg width="120" height="120" viewBox="0 0 120 120" style={{ display: "block", pointerEvents: "none" }}>
+        <circle cx="60" cy="60" r="54" fill="none" stroke={STROKE} strokeWidth="1.5" strokeDasharray="6 3" opacity="0.5" />
+        <circle cx="60" cy="60" r="36" fill={FILL}  stroke={STROKE} strokeWidth="2" />
+        <Crosshair cx={60} cy={60} r={36} />
+      </svg>
+    );
+  }
+
+  if (batterySheaf === "parallel") {
+    return (
+      <svg width="200" height="80" viewBox="0 0 200 80" style={{ display: "block", pointerEvents: "none" }}>
+        <circle cx="40"  cy="40" r="34" fill={FILL_DARK} stroke={STROKE} strokeWidth="2" strokeDasharray="6 3" />
+        <circle cx="100" cy="40" r="36" fill={FILL}      stroke={STROKE} strokeWidth="2" />
+        <Crosshair cx={100} cy={40} r={36} />
+        <circle cx="160" cy="40" r="34" fill={FILL_DARK} stroke={STROKE} strokeWidth="2" strokeDasharray="6 3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width="80" height="80" viewBox="0 0 80 80" style={{ display: "block", pointerEvents: "none" }}>
+      <circle cx="40" cy="40" r="36" fill={FILL} stroke={STROKE} strokeWidth="2" />
+      <Crosshair cx={40} cy={40} r={36} />
+    </svg>
+  );
+}
+
 // ─── Objective markers ────────────────────────────────────────────────────────
 
 // ─── Single objective marker with tooltip ─────────────────────────────────────
@@ -907,6 +966,13 @@ export default function MapPage() {
               </div>
             </Marker>
           ))}
+
+          {/* Pending fire mission target — stays on map while configuring */}
+          {pendingFireMission && (
+            <Marker longitude={pendingFireMission.lng} latitude={pendingFireMission.lat} anchor="center">
+              <FireMissionTargetSVG batterySheaf={fireMissionForm.batterySheaf} />
+            </Marker>
+          )}
 
           {/* Unit markers — always visible */}
           {currentUnits.map((unit) => {
